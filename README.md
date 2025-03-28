@@ -23,13 +23,14 @@ The server provides the following MCP tools for Google Calendar management:
 - `delete-event`: Delete a calendar event
 - `list-colors`: List available colors for events and calendars
 
-### What's New in v0.1.0
+### What's New in v0.1.2
 
 - **Multi-platform Docker support**: Now built for AMD64, ARM64, and ARMv7
 - **Docker Swarm ready**: Added Swarm deployment configurations and resource limits
 - **Better container health checks**: Enhanced container monitoring
 - **GitHub Actions integration**: Automated builds for multi-architecture images
 - **Improved resource management**: Optimized memory and CPU configurations
+- **Version fix**: Corrected version numbering in all project files
 
 ## Architecture
 
@@ -118,7 +119,7 @@ Or manually:
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
-  -t gabrielg2n/g2n-mcp-gcal-sse:0.1.0 \
+  -t gabrielg2n/g2n-mcp-gcal-sse:0.1.2 \
   --push .
 ```
 
@@ -215,8 +216,8 @@ The project includes a GitHub Actions workflow that:
 To create a new release:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 This will trigger the workflow to build and publish the tagged release.

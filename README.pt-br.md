@@ -23,13 +23,14 @@ O servidor fornece as seguintes ferramentas MCP para gerenciamento do Google Cal
 - `delete-event`: Excluir um evento de calendário
 - `list-colors`: Listar cores disponíveis para eventos e calendários
 
-### Novidades na v0.1.0
+### Novidades na v0.1.2
 
 - **Suporte Docker multi-plataforma**: Agora compilado para AMD64, ARM64 e ARMv7
 - **Pronto para Docker Swarm**: Adicionadas configurações de implantação Swarm e limites de recursos
 - **Verificações de saúde do contêiner aprimoradas**: Monitoramento aprimorado do contêiner
 - **Integração com GitHub Actions**: Builds automatizados para imagens multi-arquitetura
 - **Gerenciamento de recursos aprimorado**: Configurações otimizadas de memória e CPU
+- **Correção de versão**: Correção da numeração de versão em todos os arquivos do projeto
 
 ## Arquitetura
 
@@ -118,7 +119,7 @@ Ou manualmente:
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
-  -t gabrielg2n/g2n-mcp-gcal-sse:0.1.0 \
+  -t gabrielg2n/g2n-mcp-gcal-sse:0.1.2 \
   --push .
 ```
 
@@ -215,8 +216,8 @@ O projeto inclui um workflow do GitHub Actions que:
 Para criar uma nova release:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 Isso acionará o workflow para construir e publicar a release marcada.

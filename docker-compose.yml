@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   mcp-gcal-sse:
-    image: gabrielg2n/g2n-mcp-gcal-sse:0.1.0
+    image: gabrielg2n/g2n-mcp-gcal-sse:0.1.2
     container_name: g2n-mcp-gcal-sse
     environment:
       - PORT=3001
