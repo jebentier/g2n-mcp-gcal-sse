@@ -55,6 +55,14 @@ async function main() {
 
   console.log(`Iniciando ${SERVER_NAME} v${SERVER_VERSION}`);
   
+  // Exibir configurações importantes para debug
+  console.log(`Configuração atual:
+    HOST: ${config.HOST}
+    PORT: ${config.PORT}
+    PUBLIC_URL: ${config.PUBLIC_URL || 'não definido'}
+    OAUTH_REDIRECT_PATH: ${config.OAUTH_REDIRECT_PATH}
+  `);
+  
   // Cria o gerenciador de tokens
   const tokenManager = new TokenManager({
     tokenStoragePath: config.TOKEN_STORAGE_PATH || path.join(process.cwd(), 'data', 'tokens.json'),
@@ -72,14 +80,20 @@ async function main() {
     } else {
       // Se não tiver protocolo, adiciona https:// por padrão
       baseUrl = `https://${publicUrl}`;
-      console.log(`PUBLIC_URL sem protocolo, usando HTTPS por padrão: ${baseUrl}`);
+      console.log(`ATENÇÃO: PUBLIC_URL não contém protocolo, usando HTTPS por padrão: ${baseUrl}`);
+      console.log(`Se você está usando HTTP, defina explicitamente PUBLIC_URL=http://${publicUrl}`);
     }
   } else if (config.HOST === '0.0.0.0') {
     // Se o HOST for 0.0.0.0, usa localhost para URLs públicas
     baseUrl = `http://localhost:${config.PORT}`;
   } else {
-    // Caso contrário, usa o HOST definido
-    baseUrl = `http://${config.HOST}:${config.PORT}`;
+    // Caso contrário, usa o HOST definido e adiciona protocolo se necessário
+    const host = config.HOST.trim();
+    if (host.startsWith('http://') || host.startsWith('https://')) {
+      baseUrl = `${host}:${config.PORT}`;
+    } else {
+      baseUrl = `http://${host}:${config.PORT}`;
+    }
   }
   
   // Remover barras finais para uma construção de URL consistente
@@ -198,31 +212,43 @@ async function main() {
   
   // Endpoint SSE para eventos
   app.get('/sse', function(_: Request, res: Response) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();
-    
-    const transport = new SSEServerTransport('/messages', res);
-    transports[transport.sessionId] = transport;
-    
-    console.log(`Nova conexão SSE estabelecida: ${transport.sessionId}`);
-    
-    res.on('close', () => {
-      delete transports[transport.sessionId];
-      console.log(`Conexão SSE fechada: ${transport.sessionId}`);
-    });
-    
-    (async () => {
-      await mcpServer.connect(transport);
+    try {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+      
+      const transport = new SSEServerTransport('/messages', res);
+      transports[transport.sessionId] = transport;
+      
+      console.log(`Nova conexão SSE estabelecida: ${transport.sessionId}`);
+      
+      res.on('close', () => {
+        delete transports[transport.sessionId];
+        console.log(`Conexão SSE fechada: ${transport.sessionId}`);
+      });
+      
+      (async () => {
+        try {
+          await mcpServer.connect(transport);
 
-      // Verifica se já está autenticado, e se estiver, registra as ferramentas
-      const isAuthenticated = await calendarService.isAuthenticated();
-      if (isAuthenticated) {
-        registerCalendarTools(mcpServer, calendarService);
+          // Verifica se já está autenticado, e se estiver, registra as ferramentas
+          const isAuthenticated = await calendarService.isAuthenticated();
+          if (isAuthenticated) {
+            registerCalendarTools(mcpServer, calendarService);
+          }
+        } catch (error) {
+          console.error(`Erro ao conectar transporte SSE: ${error}`);
+        }
+      })();
+    } catch (error) {
+      console.error(`Erro ao inicializar conexão SSE: ${error}`);
+      // Não tente enviar resposta se os cabeçalhos já foram enviados
+      if (!res.headersSent) {
+        res.status(500).send('Erro interno do servidor');
       }
-    })();
+    }
   });
   
   // Endpoint para receber mensagens dos clientes
