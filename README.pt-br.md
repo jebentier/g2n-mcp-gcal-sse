@@ -26,7 +26,8 @@ O servidor fornece as seguintes ferramentas MCP para gerenciamento do Google Cal
 ### Pré-requisitos
 
 - Docker e Docker Compose instalados
-- Credenciais da API do Google Calendar (Client ID, Client Secret e Refresh Token)
+- Projeto no Google Cloud com API Calendar habilitada
+- ID do Cliente OAuth 2.0 e Chave Secreta
 
 ### Início Rápido com Docker
 
@@ -41,11 +42,10 @@ O servidor fornece as seguintes ferramentas MCP para gerenciamento do Google Cal
    cp .env.example .env
    ```
 
-3. Edite o arquivo `.env` e preencha com suas credenciais do Google Calendar:
+3. Edite o arquivo `.env` e preencha com suas credenciais da API Google:
    ```
    GOOGLE_CLIENT_ID=seu-client-id
    GOOGLE_CLIENT_SECRET=seu-client-secret
-   GOOGLE_REFRESH_TOKEN=seu-refresh-token
    ```
 
 4. Execute o contêiner Docker:
@@ -53,7 +53,14 @@ O servidor fornece as seguintes ferramentas MCP para gerenciamento do Google Cal
    docker-compose up -d
    ```
 
-5. O servidor estará disponível em http://localhost:3001
+5. Navegue até a URL de autenticação para autorizar a aplicação:
+   ```
+   http://localhost:3001/auth
+   ```
+
+6. Siga o fluxo OAuth em seu navegador para conceder acesso ao seu Google Calendar.
+
+7. Após a autorização ser concluída, o servidor estará disponível em http://localhost:3001
 
 ### Implantação no Docker Swarm
 
@@ -63,10 +70,24 @@ Para implantação em produção com Docker Swarm:
 # Crie segredos Docker para informações sensíveis
 echo "seu-client-id" | docker secret create google_client_id -
 echo "seu-client-secret" | docker secret create google_client_secret -
-echo "seu-refresh-token" | docker secret create google_refresh_token -
 
 # Implante a stack
 docker stack deploy -c docker-compose.yml g2n-mcp-gcal
+```
+
+Após a implantação, navegue até `http://seu-servidor:3001/auth` para completar o fluxo de autorização OAuth.
+
+## Fluxo de Autenticação
+
+1. Inicie o servidor usando Docker ou diretamente
+2. Navegue até o endpoint `/auth` no seu navegador
+3. Conceda permissões à aplicação usando sua conta Google
+4. Após a autorização, o servidor armazenará tokens de atualização para acesso contínuo
+5. O servidor atualizará automaticamente os tokens quando necessário
+
+Para revogar o acesso, use o endpoint `/revoke`:
+```bash
+curl -X POST http://localhost:3001/revoke
 ```
 
 ## Uso com n8n
@@ -89,7 +110,12 @@ Para configurar um ambiente de desenvolvimento:
    npm run dev
    ```
 
-3. Construa o projeto:
+3. Navegue até a URL de autorização:
+   ```
+   http://localhost:3001/auth
+   ```
+
+4. Construa o projeto:
    ```bash
    npm run build
    ```

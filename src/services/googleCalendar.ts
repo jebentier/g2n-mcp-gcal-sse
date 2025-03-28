@@ -1,35 +1,89 @@
 import { calendar_v3, google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
+import { OAuthHandler } from '../auth/oauthHandler.js';
+import { TokenManager } from '../auth/tokenManager.js';
 
 export class GoogleCalendarService {
   private calendar: calendar_v3.Calendar;
-  private auth: OAuth2Client;
+  private oauthHandler: OAuthHandler;
+  private tokenManager: TokenManager;
 
-  constructor(credentials: {
-    clientId: string;
-    clientSecret: string;
-    refreshToken: string;
-  }) {
-    this.auth = new google.auth.OAuth2(
-      credentials.clientId,
-      credentials.clientSecret
-    );
+  constructor(oauthHandler: OAuthHandler, tokenManager: TokenManager) {
+    this.oauthHandler = oauthHandler;
+    this.tokenManager = tokenManager;
     
-    this.auth.setCredentials({
-      refresh_token: credentials.refreshToken
-    });
-
+    // Inicialmente, cria o cliente do Calendar com o cliente OAuth
     this.calendar = google.calendar({
       version: 'v3',
-      auth: this.auth
+      auth: this.oauthHandler.getClient()
+    });
+    
+    // Configura o ouvinte de atualização de token
+    this.tokenManager.setTokenRefreshListener(async (tokens) => {
+      await this.refreshAccessToken();
     });
   }
 
-  // Método para gerenciar tokens de acesso
-  public async refreshAccessToken(): Promise<string> {
-    const { credentials } = await this.auth.refreshAccessToken();
-    this.auth.setCredentials(credentials);
-    return credentials.access_token || '';
+  /**
+   * Inicializa o serviço do Calendar com tokens existentes
+   */
+  public async initialize(): Promise<boolean> {
+    try {
+      // Verifica se já temos tokens válidos
+      const hasValidTokens = await this.tokenManager.hasValidTokens();
+      
+      if (hasValidTokens) {
+        // Configura o cliente com tokens existentes
+        await this.oauthHandler.setupClientWithTokens();
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Erro ao inicializar serviço do Calendar:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Método para gerenciar tokens de acesso
+   */
+  public async refreshAccessToken(): Promise<void> {
+    try {
+      const auth = await this.oauthHandler.setupClientWithTokens();
+      
+      // Atualiza o cliente do Calendar com o cliente OAuth atualizado
+      this.calendar = google.calendar({
+        version: 'v3',
+        auth
+      });
+      
+    } catch (error) {
+      console.error('Erro ao atualizar token de acesso:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtém a URL de autorização OAuth
+   */
+  public getAuthUrl(): string {
+    return this.oauthHandler.generateAuthUrl();
+  }
+
+  /**
+   * Processa o código de autorização retornado pelo Google
+   */
+  public async handleAuthCode(code: string): Promise<void> {
+    await this.oauthHandler.exchangeCode(code);
+    await this.refreshAccessToken();
+  }
+
+  /**
+   * Revoga o acesso atual
+   */
+  public async revokeAccess(): Promise<void> {
+    await this.oauthHandler.revokeTokens();
   }
 
   // Métodos de Calendário

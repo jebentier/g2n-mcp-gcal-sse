@@ -26,7 +26,8 @@ The server provides the following MCP tools for Google Calendar management:
 ### Prerequisites
 
 - Docker and Docker Compose installed
-- Google Calendar API credentials (Client ID, Client Secret, and Refresh Token)
+- Google Cloud Project with Calendar API enabled
+- OAuth 2.0 Client ID and Client Secret
 
 ### Quick Start with Docker
 
@@ -41,11 +42,10 @@ The server provides the following MCP tools for Google Calendar management:
    cp .env.example .env
    ```
 
-3. Edit the `.env` file and fill in your Google Calendar credentials:
+3. Edit the `.env` file and fill in your Google API credentials:
    ```
    GOOGLE_CLIENT_ID=your-client-id
    GOOGLE_CLIENT_SECRET=your-client-secret
-   GOOGLE_REFRESH_TOKEN=your-refresh-token
    ```
 
 4. Run the Docker container:
@@ -53,7 +53,14 @@ The server provides the following MCP tools for Google Calendar management:
    docker-compose up -d
    ```
 
-5. The server will be available at http://localhost:3001
+5. Navigate to the authentication URL to authorize the application:
+   ```
+   http://localhost:3001/auth
+   ```
+   
+6. Follow the OAuth flow in your browser to grant access to your Google Calendar.
+
+7. Once authorization is complete, the server will be available at http://localhost:3001
 
 ### Docker Swarm Deployment
 
@@ -63,10 +70,24 @@ For production deployment with Docker Swarm:
 # Create Docker secrets for sensitive information
 echo "your-client-id" | docker secret create google_client_id -
 echo "your-client-secret" | docker secret create google_client_secret -
-echo "your-refresh-token" | docker secret create google_refresh_token -
 
 # Deploy the stack
 docker stack deploy -c docker-compose.yml g2n-mcp-gcal
+```
+
+After deployment, navigate to `http://your-server:3001/auth` to complete the OAuth authorization flow.
+
+## Authentication Flow
+
+1. Start the server using Docker or directly
+2. Navigate to `/auth` endpoint in your browser
+3. Grant permissions to the application using your Google account
+4. After authorization, the server will store refresh tokens for continued access
+5. The server will automatically refresh tokens when needed
+
+To revoke access, use the `/revoke` endpoint:
+```bash
+curl -X POST http://localhost:3001/revoke
 ```
 
 ## Usage with n8n
@@ -89,7 +110,12 @@ To set up a development environment:
    npm run dev
    ```
 
-3. Build the project:
+3. Navigate to the authorization URL:
+   ```
+   http://localhost:3001/auth
+   ```
+
+4. Build the project:
    ```bash
    npm run build
    ```
