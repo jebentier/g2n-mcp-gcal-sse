@@ -1,7 +1,15 @@
 import { calendar_v3, google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
 import { OAuthHandler } from '../auth/oauthHandler.js';
 import { TokenManager } from '../auth/tokenManager.js';
+import { 
+  ListEventsParams, 
+  GetCalendarParams,
+  GetEventParams,
+  CreateEventParams,
+  UpdateEventParams,
+  DeleteEventParams,
+  ListColorsParams
+} from '../types/index.js';
 
 export class GoogleCalendarService {
   private calendar: calendar_v3.Calendar;
@@ -41,6 +49,27 @@ export class GoogleCalendarService {
       return false;
     } catch (error) {
       console.error('Erro ao inicializar serviço do Calendar:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Verifica se o serviço está autenticado com tokens válidos
+   */
+  public async isAuthenticated(): Promise<boolean> {
+    try {
+      // Verifica se temos tokens válidos
+      const hasValidTokens = await this.tokenManager.hasValidTokens();
+      
+      if (hasValidTokens) {
+        // Tenta a inicialização se temos tokens
+        await this.oauthHandler.setupClientWithTokens();
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Erro ao verificar autenticação:', error);
       return false;
     }
   }
@@ -96,7 +125,7 @@ export class GoogleCalendarService {
     }
   }
 
-  public async getCalendar(calendarId: string) {
+  public async getCalendar(calendarId: GetCalendarParams['calendarId']) {
     try {
       const response = await this.calendar.calendarList.get({
         calendarId
@@ -108,15 +137,7 @@ export class GoogleCalendarService {
   }
 
   // Métodos de Eventos
-  public async listEvents(params: {
-    calendarId: string;
-    timeMin?: string;
-    timeMax?: string;
-    maxResults?: number;
-    q?: string;
-    singleEvents?: boolean;
-    orderBy?: string;
-  }) {
+  public async listEvents(params: Omit<ListEventsParams, 'orderBy'> & { orderBy?: 'startTime' | 'updated' | string }) {
     try {
       const response = await this.calendar.events.list({
         calendarId: params.calendarId,
@@ -133,7 +154,10 @@ export class GoogleCalendarService {
     }
   }
 
-  public async getEvent(calendarId: string, eventId: string) {
+  public async getEvent(
+    calendarId: GetEventParams['calendarId'], 
+    eventId: GetEventParams['eventId']
+  ) {
     try {
       const response = await this.calendar.events.get({
         calendarId,
@@ -145,11 +169,14 @@ export class GoogleCalendarService {
     }
   }
 
-  public async createEvent(calendarId: string, eventData: calendar_v3.Schema$Event) {
+  public async createEvent(
+    calendarId: CreateEventParams['calendarId'], 
+    eventData: Omit<CreateEventParams, 'calendarId'>
+  ) {
     try {
       const response = await this.calendar.events.insert({
         calendarId,
-        requestBody: eventData,
+        requestBody: eventData as calendar_v3.Schema$Event,
       });
       return response.data;
     } catch (error) {
@@ -158,15 +185,15 @@ export class GoogleCalendarService {
   }
 
   public async updateEvent(
-    calendarId: string, 
-    eventId: string, 
-    eventData: calendar_v3.Schema$Event
+    calendarId: UpdateEventParams['calendarId'], 
+    eventId: UpdateEventParams['eventId'], 
+    eventData: Omit<UpdateEventParams, 'calendarId' | 'eventId'>
   ) {
     try {
       const response = await this.calendar.events.update({
         calendarId,
         eventId,
-        requestBody: eventData,
+        requestBody: eventData as calendar_v3.Schema$Event,
       });
       return response.data;
     } catch (error) {
@@ -175,9 +202,9 @@ export class GoogleCalendarService {
   }
 
   public async deleteEvent(
-    calendarId: string, 
-    eventId: string, 
-    sendUpdates?: 'all' | 'externalOnly' | 'none'
+    calendarId: DeleteEventParams['calendarId'], 
+    eventId: DeleteEventParams['eventId'], 
+    sendUpdates?: DeleteEventParams['sendUpdates']
   ) {
     try {
       await this.calendar.events.delete({

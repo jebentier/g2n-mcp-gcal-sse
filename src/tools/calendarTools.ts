@@ -1,144 +1,283 @@
-import { McpTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { GoogleCalendarService } from '../services/googleCalendar.js';
-import * as Types from '../types/index.js';
+import { 
+  ListCalendarsSchema,
+  GetCalendarSchema,
+  ListEventsSchema,
+  GetEventSchema,
+  CreateEventSchema,
+  UpdateEventSchema,
+  DeleteEventSchema,
+  ListColorsSchema,
+  ListEventsParams,
+  GetCalendarParams,
+  GetEventParams,
+  CreateEventParams,
+  UpdateEventParams,
+  DeleteEventParams
+} from '../types/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
-export const createCalendarTools = (calendarService: GoogleCalendarService): McpTool[] => {
-  return [
-    {
-      name: 'list-calendars',
-      description: 'Listar todos os calendários disponíveis',
-      parameters: Types.ListCalendarsSchema,
-      execute: async () => {
-        try {
-          const calendars = await calendarService.listCalendars();
-          return calendars;
-        } catch (error) {
-          console.error('Erro ao listar calendários:', error);
-          throw error;
-        }
-      }
-    },
-    
-    {
-      name: 'get-calendar',
-      description: 'Obtenha detalhes de um calendário específico',
-      parameters: Types.GetCalendarSchema,
-      execute: async (params: Types.GetCalendarParams) => {
-        try {
-          const calendar = await calendarService.getCalendar(params.calendarId);
-          return calendar;
-        } catch (error) {
-          console.error(`Erro ao obter calendário ${params.calendarId}:`, error);
-          throw error;
-        }
-      }
-    },
-    
-    {
-      name: 'list-events',
-      description: 'Listar eventos de um calendário com opções de filtragem',
-      parameters: Types.ListEventsSchema,
-      execute: async (params: Types.ListEventsParams) => {
-        try {
-          const events = await calendarService.listEvents({
-            calendarId: params.calendarId,
-            timeMin: params.timeMin,
-            timeMax: params.timeMax,
-            maxResults: params.maxResults,
-            q: params.q,
-            singleEvents: params.singleEvents,
-            orderBy: params.orderBy
-          });
-          return events;
-        } catch (error) {
-          console.error(`Erro ao listar eventos do calendário ${params.calendarId}:`, error);
-          throw error;
-        }
-      }
-    },
-    
-    {
-      name: 'get-event',
-      description: 'Obtenha informações detalhadas sobre um evento específico',
-      parameters: Types.GetEventSchema,
-      execute: async (params: Types.GetEventParams) => {
-        try {
-          const event = await calendarService.getEvent(params.calendarId, params.eventId);
-          return event;
-        } catch (error) {
-          console.error(`Erro ao obter evento ${params.eventId}:`, error);
-          throw error;
-        }
-      }
-    },
-    
-    {
-      name: 'create-event',
-      description: 'Criar um novo evento de calendário',
-      parameters: Types.CreateEventSchema,
-      execute: async (params: Types.CreateEventParams) => {
-        try {
-          // Extrai os dados relevantes do evento do parâmetro
-          const { calendarId, ...eventData } = params;
-          
-          const createdEvent = await calendarService.createEvent(calendarId, eventData);
-          return createdEvent;
-        } catch (error) {
-          console.error('Erro ao criar evento:', error);
-          throw error;
-        }
-      }
-    },
-    
-    {
-      name: 'update-event',
-      description: 'Atualizar um evento de calendário existente',
-      parameters: Types.UpdateEventSchema,
-      execute: async (params: Types.UpdateEventParams) => {
-        try {
-          const { calendarId, eventId, ...eventData } = params;
-          
-          const updatedEvent = await calendarService.updateEvent(calendarId, eventId, eventData);
-          return updatedEvent;
-        } catch (error) {
-          console.error(`Erro ao atualizar evento ${params.eventId}:`, error);
-          throw error;
-        }
-      }
-    },
-    
-    {
-      name: 'delete-event',
-      description: 'Excluir um evento do calendário',
-      parameters: Types.DeleteEventSchema,
-      execute: async (params: Types.DeleteEventParams) => {
-        try {
-          const result = await calendarService.deleteEvent(
-            params.calendarId, 
-            params.eventId, 
-            params.sendUpdates
-          );
-          return result;
-        } catch (error) {
-          console.error(`Erro ao excluir evento ${params.eventId}:`, error);
-          throw error;
-        }
-      }
-    },
-    
-    {
-      name: 'list-colors',
-      description: 'Listar cores disponíveis para eventos e calendários',
-      parameters: Types.ListColorsSchema,
-      execute: async () => {
-        try {
-          const colors = await calendarService.listColors();
-          return colors;
-        } catch (error) {
-          console.error('Erro ao listar cores disponíveis:', error);
-          throw error;
-        }
+export const registerCalendarTools = (server: McpServer, calendarService: GoogleCalendarService): void => {
+  // List Calendars
+  server.tool(
+    'list-calendars',
+    'Listar todos os calendários disponíveis',
+    async (extra) => {
+      try {
+        const calendars = await calendarService.listCalendars();
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(calendars, null, 2)
+            }
+          ]
+        };
+      } catch (error) {
+        console.error('Erro ao listar calendários:', error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erro ao listar calendários: ${error}`
+            }
+          ],
+          isError: true
+        };
       }
     }
-  ];
+  );
+
+  // Get Calendar
+  server.tool(
+    'get-calendar',
+    'Obtenha detalhes de um calendário específico',
+    GetCalendarSchema.shape,
+    async (params: GetCalendarParams, extra) => {
+      try {
+        const calendar = await calendarService.getCalendar(params.calendarId);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(calendar, null, 2)
+            }
+          ]
+        };
+      } catch (error) {
+        console.error(`Erro ao obter calendário ${params.calendarId}:`, error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erro ao obter calendário ${params.calendarId}: ${error}`
+            }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
+
+  // List Events
+  server.tool(
+    'list-events',
+    'Listar eventos de um calendário com opções de filtragem',
+    ListEventsSchema.shape,
+    async (params: ListEventsParams, extra) => {
+      try {
+        const events = await calendarService.listEvents({
+          calendarId: params.calendarId,
+          timeMin: params.timeMin,
+          timeMax: params.timeMax,
+          maxResults: params.maxResults,
+          q: params.q,
+          singleEvents: params.singleEvents,
+          orderBy: params.orderBy
+        });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(events, null, 2)
+            }
+          ]
+        };
+      } catch (error) {
+        console.error(`Erro ao listar eventos do calendário ${params.calendarId}:`, error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erro ao listar eventos do calendário ${params.calendarId}: ${error}`
+            }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
+
+  // Get Event
+  server.tool(
+    'get-event',
+    'Obtenha informações detalhadas sobre um evento específico',
+    GetEventSchema.shape,
+    async (params: GetEventParams, extra) => {
+      try {
+        const event = await calendarService.getEvent(params.calendarId, params.eventId);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(event, null, 2)
+            }
+          ]
+        };
+      } catch (error) {
+        console.error(`Erro ao obter evento ${params.eventId}:`, error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erro ao obter evento ${params.eventId}: ${error}`
+            }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
+
+  // Create Event
+  server.tool(
+    'create-event',
+    'Criar um novo evento de calendário',
+    CreateEventSchema.shape,
+    async (params: CreateEventParams, extra) => {
+      try {
+        // Extrai os dados relevantes do evento do parâmetro
+        const { calendarId, ...eventData } = params;
+        
+        const createdEvent = await calendarService.createEvent(calendarId, eventData);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(createdEvent, null, 2)
+            }
+          ]
+        };
+      } catch (error) {
+        console.error('Erro ao criar evento:', error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erro ao criar evento: ${error}`
+            }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
+
+  // Update Event
+  server.tool(
+    'update-event',
+    'Atualizar um evento de calendário existente',
+    UpdateEventSchema.shape,
+    async (params: UpdateEventParams, extra) => {
+      try {
+        const { calendarId, eventId, ...eventData } = params;
+        
+        const updatedEvent = await calendarService.updateEvent(calendarId, eventId, eventData);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(updatedEvent, null, 2)
+            }
+          ]
+        };
+      } catch (error) {
+        console.error(`Erro ao atualizar evento ${params.eventId}:`, error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erro ao atualizar evento ${params.eventId}: ${error}`
+            }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
+
+  // Delete Event
+  server.tool(
+    'delete-event',
+    'Excluir um evento do calendário',
+    DeleteEventSchema.shape,
+    async (params: DeleteEventParams, extra) => {
+      try {
+        const result = await calendarService.deleteEvent(
+          params.calendarId, 
+          params.eventId, 
+          params.sendUpdates
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      } catch (error) {
+        console.error(`Erro ao excluir evento ${params.eventId}:`, error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erro ao excluir evento ${params.eventId}: ${error}`
+            }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
+
+  // List Colors
+  server.tool(
+    'list-colors',
+    'Listar cores disponíveis para eventos e calendários',
+    async (extra) => {
+      try {
+        const colors = await calendarService.listColors();
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(colors, null, 2)
+            }
+          ]
+        };
+      } catch (error) {
+        console.error('Erro ao listar cores disponíveis:', error);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erro ao listar cores disponíveis: ${error}`
+            }
+          ],
+          isError: true
+        };
+      }
+    }
+  );
 }; 

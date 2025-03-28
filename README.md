@@ -6,7 +6,9 @@
 
 ## Overview
 
-G2N MCP Google Calendar SSE Server is a Model Context Protocol (MCP) server implementation that provides Google Calendar integration through Server-Sent Events (SSE). This server exposes Google Calendar functionality as tools that can be used by AI models and tools like n8n to interact with Google Calendar.
+G2N MCP Google Calendar SSE Server is a Model Context Protocol (MCP) server implementation that provides Google Calendar integration through Server-Sent Events (SSE). This server exposes Google Calendar functionality as tools that can be used by AI models and applications like Cursor, Claude, and n8n to interact with Google Calendar.
+
+Built with the latest version of the MCP SDK, this server offers a robust integration between MCP-compatible AI models and Google Calendar services.
 
 ## Features
 
@@ -20,6 +22,14 @@ The server provides the following MCP tools for Google Calendar management:
 - `update-event`: Update an existing calendar event
 - `delete-event`: Delete a calendar event
 - `list-colors`: List available colors for events and calendars
+
+## Architecture
+
+The project follows a clean architecture approach with:
+
+- **Strong typing**: Consistent type definitions using Zod schemas and TypeScript
+- **Modular design**: Separation of concerns between authentication, services, and tools
+- **Docker support**: Multi-platform container deployment for ease of use
 
 ## Getting Started
 
@@ -67,7 +77,11 @@ The server provides the following MCP tools for Google Calendar management:
 For production deployment with Docker Swarm:
 
 ```bash
-# Create Docker secrets for sensitive information
+# Build and push the image to Docker Hub
+docker build -t g2ntech/g2n-mcp-gcal-sse:latest .
+docker push g2ntech/g2n-mcp-gcal-sse:latest
+
+# Create Docker secrets for sensitive information (recommended)
 echo "your-client-id" | docker secret create google_client_id -
 echo "your-client-secret" | docker secret create google_client_secret -
 
@@ -75,7 +89,45 @@ echo "your-client-secret" | docker secret create google_client_secret -
 docker stack deploy -c docker-compose.yml g2n-mcp-gcal
 ```
 
+For a more secure setup with Docker Swarm, modify the `docker-compose.yml` to use secrets instead of environment variables:
+
+```yaml
+services:
+  mcp-gcal-sse:
+    # ... other configurations
+    secrets:
+      - google_client_id
+      - google_client_secret
+    environment:
+      - PORT=3001
+      - HOST=0.0.0.0
+      - GOOGLE_CLIENT_ID_FILE=/run/secrets/google_client_id
+      - GOOGLE_CLIENT_SECRET_FILE=/run/secrets/google_client_secret
+      - TOKEN_STORAGE_PATH=/app/data/tokens.json
+
+secrets:
+  google_client_id:
+    external: true
+  google_client_secret:
+    external: true
+```
+
 After deployment, navigate to `http://your-server:3001/auth` to complete the OAuth authorization flow.
+
+## Multi-platform Support
+
+The Docker image is built for multiple platforms including:
+- linux/amd64
+- linux/arm64
+- linux/arm/v7
+
+To build a multi-architecture image:
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
+  -t g2ntech/g2n-mcp-gcal-sse:latest \
+  --push .
+```
 
 ## Authentication Flow
 
@@ -90,10 +142,28 @@ To revoke access, use the `/revoke` endpoint:
 curl -X POST http://localhost:3001/revoke
 ```
 
-## Usage with n8n
+## Usage with MCP-compatible Applications
+
+### Cursor AI
+
+You can use this server with Cursor AI by configuring the MCP connection in your settings:
+
+1. Open Cursor settings
+2. Configure the MCP server URL: `http://localhost:3001/sse`
+3. Start using Google Calendar features through AI commands
+
+### Claude Desktop
+
+For Claude Desktop:
+
+1. Navigate to Settings > MCP
+2. Add a new MCP connection with the URL: `http://localhost:3001/sse`
+3. Access Google Calendar functionality through your conversations
+
+### n8n
 
 1. In n8n, add a new MCP node
-2. Configure the MCP node with the SSE endpoint URL: `http://your-server:3001/sse`
+2. Configure the MCP node with the SSE endpoint URL: `http://localhost:3001/sse`
 3. Use the exposed calendar tools in your workflows
 
 ## Development
@@ -119,6 +189,23 @@ To set up a development environment:
    ```bash
    npm run build
    ```
+
+## Project Structure
+
+```
+src/
+├── auth/              # Authentication and token management
+├── services/          # Core service implementations 
+├── tools/             # MCP tool definitions
+├── types/             # Type definitions with Zod schemas
+└── index.ts           # Application entry point
+```
+
+## Persistence and Data Management
+
+The server stores tokens in a volume mounted at `/app/data`. This ensures that your authentication persists across container restarts.
+
+For Docker Swarm deployments, consider using a shared volume or a networked storage solution to ensure token persistence across swarm nodes.
 
 ## License
 
