@@ -1,0 +1,231 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# G2NTech - Project Rules
+
+## 1. Nomenclatura de Diretórios
+- Use **nomes descritivos** e **em inglês**.
+- Utilize `kebab-case` para **nomes de diretórios** (ex.: `user-authentication`).
+- Para **arquivos TypeScript**, siga estas convenções:
+  - `camelCase.ts` → Para arquivos utilitários, funções ou hooks (ex.: `fetchData.ts`).
+  - `PascalCase.tsx` → Para **componentes React** (ex.: `UserProfile.tsx`).
+- Separe diretórios por **contexto**, como:
+  - **`src/`** → Código-fonte principal.
+  - **`docs/`** → Documentação.
+  - **`tests/`** → Testes unitários e de integração.
+  - **`/`** → Configurações (ex.: `eslint`, `prettier`, `tsconfig.json`).
+  - **`types/`** → Definições de tipos globais (`types/global.d.ts`).
+  - **`public/`** → Recursos estáticos (se aplicável).
+
+## 2. README do Projeto
+Cada repositório deve conter um `README.md` detalhado com:
+- **Descrição:** Objetivo e funcionalidades do projeto.
+- **Instalação:** Passo a passo para configurar o ambiente.
+- **Uso:** Exemplos de uso e comandos principais.
+- **Configuração:** Opções de configuração disponíveis.
+- **Contribuição:** Diretrizes para novos contribuidores.
+- **Licença:** Tipo de licença utilizada.
+- **Propriedade:** Deve ficar claro que o projeto pertence à G2NTech e foi desenvolvido por **Gabriel Augusto** (@oaugustosgabriel).
+
+### 2.1. Estrutura Bilíngue do README
+Para alcançar um público global sem deixar de atender o público brasileiro, siga esta estrutura:
+1. **README principal (`README.md`) deve estar em inglês** (padrão global no GitHub).
+2. **Versão em português (`README.pt-br.md`)** com um link no topo do README principal.
+
+**Exemplo de cabeçalho no README principal:**
+```md
+# Project Name
+
+🌎 This README is available in multiple languages:
+- 🇺🇸 [English](mdc:README.md)
+- 🇧🇷 [Português](mdc:README.pt-br.md)
+```
+Dessa forma, os usuários internacionais encontram o projeto com mais facilidade, enquanto os brasileiros ainda têm acesso ao conteúdo no idioma nativo.
+
+## 3. Diretrizes de Contribuição
+- Utilize branches seguindo o padrão: `feature/nome-da-feature` ou `fix/nome-do-bug`.
+- Submeta PRs (Pull Requests) com descrição clara das mudanças.
+- Mantenha o código consistente com o estilo do projeto.
+- Inclua testes unitários sempre que possível.
+- Adicione documentação para novas funcionalidades.
+
+## 4. Licença
+Todos os projetos serão open source sob a **Licença MIT**. Um arquivo `LICENSE` deve estar presente na raiz do repositório.
+
+## 5. Commits e Releases
+### Commits
+- Siga a convenção de commits semânticos:
+  ```
+  <tipo>: <descrição breve>
+  ```
+  **Tipos comuns:**
+  - `feat`: nova funcionalidade
+  - `fix`: correção de bug
+  - `docs`: mudanças na documentação
+  - `style`: ajustes de formatação
+  - `refactor`: refatoração sem alterar funcionalidade
+  - `test`: adição/modificação de testes
+  - `chore`: manutenção do projeto
+- Mensagens de commit devem ser claras e objetivas (máx. 72 caracteres no título).
+- Exemplo de commit bem estruturado:
+  ```
+  feat: adiciona autenticação via OAuth
+  
+  Implementa suporte para autenticação de usuários utilizando OAuth 2.0.
+  Inclui integração com Google e GitHub.
+  ```
+
+### Releases
+- Utilize versionamento semântico (`MAJOR.MINOR.PATCH`).
+- Criar releases no GitHub com changelogs documentando mudanças.
+- Tags devem seguir o padrão: `vX.Y.Z` (ex.: `v1.2.0`).
+
+## 6. Boas Práticas para TypeScript
+### Configuração do TypeScript
+A configuração do TypeScript deve seguir o seguinte `tsconfig.json`:
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "./build",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
+```
+
+### Estilo de Código
+- Utilize `camelCase` para variáveis e funções.
+- Utilize `PascalCase` para nomes de classes e tipos.
+- Evite `any`, prefira `unknown` ou `never` sempre que possível.
+- Sempre declare o tipo de retorno das funções.
+- Utilize `readonly` para propriedades que não devem ser modificadas.
+- Prefira `const` sobre `let` sempre que possível.
+
+### Uso do Zod
+É obrigatório o uso da biblioteca [Zod](mdc:https:/zod.dev) para validação de dados. Exemplo de uso:
+```ts
+import { z } from "zod";
+
+const UserSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(2),
+  email: z.string().email()
+});
+
+type User = z.infer<typeof UserSchema>;
+```
+
+### Scripts de Build
+O script de build deve garantir permissões de execução para o arquivo de entrada:
+```json
+"scripts": {
+  "build": "tsc && chmod 755 build/{entrypoint}.js"
+}
+```
+Substitua `{entrypoint}` pelo nome do arquivo de entrada do projeto.
+
+### Boas Práticas Gerais
+- Separe código de infraestrutura (configuração, banco, etc.) do código de regras de negócio.
+- Use `async/await` para operações assíncronas.
+- Evite mutações de estado desnecessárias.
+- Utilize interfaces e tipos para garantir segurança estática.
+- Prefira `Record<K, V>` para objetos indexados ao invés de `{ [key: string]: Type }`.
+- Mantenha arquivos pequenos e organizados por responsabilidade.
+
+## 7. Redes Sociais e Contato
+Para mais conteúdos, tutoriais e interação, siga **Gabriel Augusto (@oaugustosgabriel)**:
+- 📺 **YouTube:** [youtube.com/@oaugustosgabriel](mdc:https:/www.youtube.com/@oaugustosgabriel) – Assista aos vídeos e interaja nos comentários!
+- 📸 **Instagram:** [instagram.com/oaugustosgabriel](mdc:https:/www.instagram.com/oaugustosgabriel) – Mande um direct e acompanhe novidades!
+- 📧 **Contato por e-mail:** [gabriel@g2ngroup.com.br](mdc:mailto:gabriel@g2ngroup.com.br)
+
+## 8. Apoie o Projeto 💜
+Se este projeto for útil para você e quiser contribuir, aceitamos doações via **PIX**:
+- **Chave PIX:** `gabriel@g2ngroup.com`
+- ![QR Code para doação](mdc:INSERIR_LINK_DO_QR_CODE_AQUI)
+
+Toda contribuição ajuda a manter e evoluir os projetos open-source! 🚀
+
+
+# MCP TypeScript SDK Guide
+
+## Build & Test Commands
+```
+npm run build        # Build ESM and CJS versions
+npm run lint         # Run ESLint
+npm test             # Run all tests
+npx jest path/to/file.test.ts  # Run specific test file
+npx jest -t "test name"        # Run tests matching pattern
+```
+
+## Code Style Guidelines
+- **TypeScript**: Strict type checking, ES modules, explicit return types
+- **Naming**: PascalCase for classes/types, camelCase for functions/variables
+- **Files**: Lowercase with hyphens, test files with `.test.ts` suffix
+- **Imports**: ES module style, include `.js` extension, group imports logically
+- **Error Handling**: Use TypeScript's strict mode, explicit error checking in tests
+- **Formatting**: 2-space indentation, semicolons required, single quotes preferred
+- **Testing**: Co-locate tests with source files, use descriptive test names
+- **Comments**: JSDoc for public APIs, inline comments for complex logic
+
+## Project Structure
+- `/src`: Source code with client, server, and shared modules
+- Tests alongside source files with `.test.ts` suffix
+- Node.js >= 18 required
+
+## Running Your Server
+
+MCP servers in TypeScript need to be connected to a transport to communicate with clients.
+
+### HTTP with SSE
+
+For remote servers, start a web server with a Server-Sent Events (SSE) endpoint, and a separate endpoint for the client to send its messages to:
+
+```typescript
+import express, { Request, Response } from "express";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+
+const server = new McpServer({
+  name: "example-server",
+  version: "1.0.0"
+});
+
+// ... set up server resources, tools, and prompts ...
+
+const app = express();
+
+// to support multiple simultaneous connections we have a lookup object from
+// sessionId to transport
+const transports: {[sessionId: string]: SSEServerTransport} = {};
+
+app.get("/sse", async (_: Request, res: Response) => {
+  const transport = new SSEServerTransport('/messages', res);
+  transports[transport.sessionId] = transport;
+  res.on("close", () => {
+    delete transports[transport.sessionId];
+  });
+  await server.connect(transport);
+});
+
+app.post("/messages", async (req: Request, res: Response) => {
+  const sessionId = req.query.sessionId as string;
+  const transport = transports[sessionId];
+  if (transport) {
+    await transport.handlePostMessage(req, res);
+  } else {
+    res.status(400).send('No transport found for sessionId');
+  }
+});
+
+app.listen(3001);
+```

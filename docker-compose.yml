@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  mcp-gcal-sse:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: g2ntech/g2n-mcp-gcal-sse:latest
+    container_name: g2n-mcp-gcal-sse
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+      - HOST=0.0.0.0
+      - SERVER_NAME=g2n-mcp-gcal-sse
+      - SERVER_VERSION=1.0.0
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REFRESH_TOKEN=${GOOGLE_REFRESH_TOKEN}
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+# Para produção em Docker Swarm, adicione:
+# Usar configuração similar à acima mas adicionar 
+# configs ou secrets para credenciais sensíveis
+#
+# deploy:
+#   replicas: 1
+#   restart_policy:
+#     condition: on-failure
+#   update_config:
+#     parallelism: 1
+#     delay: 10s
+#     order: start-first
+#   resources:
+#     limits:
+#       cpus: '0.5'
+#       memory: 512M 
