@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import { Request, Response } from 'express';
 import path from 'path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
@@ -10,7 +11,7 @@ import { z } from 'zod';
 
 // Versão e nome do servidor
 const SERVER_NAME = 'g2n-mcp-gcal-sse';
-const SERVER_VERSION = '1.0.0';
+const SERVER_VERSION = '0.1.0';
 
 // Definição do esquema de configuração
 const ConfigSchema = z.object({
@@ -90,7 +91,7 @@ async function main() {
   const transports: {[sessionId: string]: SSEServerTransport} = {};
   
   // Endpoint de saúde
-  app.get('/health', async (_, res) => {
+  app.get('/health', async (_: Request, res: Response) => {
     const isAuthenticated = await calendarService.isAuthenticated();
     
     res.status(200).json({ 
@@ -102,54 +103,57 @@ async function main() {
   });
   
   // Endpoint para iniciar fluxo de autorização OAuth
-  app.get('/auth', (_, res) => {
+  app.get('/auth', (_: Request, res: Response) => {
     const authUrl = calendarService.getAuthUrl();
     res.redirect(authUrl);
   });
   
   // Endpoint de callback para receber o código de autorização OAuth
-  app.get(config.OAUTH_REDIRECT_PATH, async (req: Request, res: Response) => {
+  app.get(String(config.OAUTH_REDIRECT_PATH), (req: Request, res: Response) => {
     const { code } = req.query;
     
     if (!code || typeof code !== 'string') {
-      return res.status(400).send('Código de autorização ausente ou inválido');
+      res.status(400).send('Código de autorização ausente ou inválido');
+      return;
     }
     
-    try {
-      // Processa o código de autorização
-      await calendarService.handleAuthCode(code);
-      
-      res.send(`
-        <html>
-          <head>
-            <title>Autorização concluída</title>
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-              .success { color: green; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1 class="success">Autorização concluída com sucesso!</h1>
-              <p>O servidor MCP do Google Calendar foi autorizado com sucesso.</p>
-              <p>Você pode fechar esta janela agora e voltar para a aplicação.</p>
-            </div>
-          </body>
-        </html>
-      `);
-      
-      // Registra as ferramentas do Google Calendar após autenticação bem-sucedida
-      registerCalendarTools(mcpServer, calendarService);
-      
-    } catch (error) {
-      console.error('Erro durante autorização OAuth:', error);
-      res.status(500).send(`Erro durante autorização: ${error}`);
-    }
+    (async () => {
+      try {
+        // Processa o código de autorização
+        await calendarService.handleAuthCode(code);
+        
+        res.send(`
+          <html>
+            <head>
+              <title>Autorização concluída</title>
+              <style>
+                body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+                .success { color: green; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h1 class="success">Autorização concluída com sucesso!</h1>
+                <p>O servidor MCP do Google Calendar foi autorizado com sucesso.</p>
+                <p>Você pode fechar esta janela agora e voltar para a aplicação.</p>
+              </div>
+            </body>
+          </html>
+        `);
+        
+        // Registra as ferramentas do Google Calendar após autenticação bem-sucedida
+        registerCalendarTools(mcpServer, calendarService);
+        
+      } catch (error) {
+        console.error('Erro durante autorização OAuth:', error);
+        res.status(500).send(`Erro durante autorização: ${error}`);
+      }
+    })();
   });
   
   // Endpoint para revogar o acesso
-  app.post('/revoke', async (_, res) => {
+  app.post('/revoke', async (_: Request, res: Response) => {
     try {
       await calendarService.revokeAccess();
       res.status(200).json({ success: true, message: 'Acesso revogado com sucesso' });
@@ -160,7 +164,7 @@ async function main() {
   });
   
   // Endpoint SSE para eventos
-  app.get('/sse', async (_: Request, res: Response) => {
+  app.get('/sse', function(_: Request, res: Response) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Content-Type', 'text/event-stream');
@@ -177,27 +181,31 @@ async function main() {
       console.log(`Conexão SSE fechada: ${transport.sessionId}`);
     });
     
-    await mcpServer.connect(transport);
+    (async () => {
+      await mcpServer.connect(transport);
 
-    // Verifica se já está autenticado, e se estiver, registra as ferramentas
-    const isAuthenticated = await calendarService.isAuthenticated();
-    if (isAuthenticated) {
-      registerCalendarTools(mcpServer, calendarService);
-    }
+      // Verifica se já está autenticado, e se estiver, registra as ferramentas
+      const isAuthenticated = await calendarService.isAuthenticated();
+      if (isAuthenticated) {
+        registerCalendarTools(mcpServer, calendarService);
+      }
+    })();
   });
   
   // Endpoint para receber mensagens dos clientes
-  app.post('/messages', async (req: Request, res: Response) => {
+  app.post('/messages', function(req: Request, res: Response) {
     const sessionId = req.query.sessionId as string;
     const transport = transports[sessionId];
     
     if (transport) {
-      try {
-        await transport.handlePostMessage(req, res);
-      } catch (error) {
-        console.error(`Erro ao processar mensagem para sessão ${sessionId}:`, error);
-        res.status(500).send('Erro ao processar mensagem');
-      }
+      (async () => {
+        try {
+          await transport.handlePostMessage(req, res);
+        } catch (error) {
+          console.error(`Erro ao processar mensagem para sessão ${sessionId}:`, error);
+          res.status(500).send('Erro ao processar mensagem');
+        }
+      })();
     } else {
       res.status(400).send('Nenhum transporte encontrado para o sessionId fornecido');
     }
