@@ -2,12 +2,13 @@ version: '3.8'
 
 services:
   mcp-gcal-sse:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: g2ntech/g2n-mcp-gcal-sse:latest
+    image: node:18-alpine
     container_name: g2n-mcp-gcal-sse
     restart: unless-stopped
+    working_dir: /app
+    command: >
+      sh -c "npm install &&
+             npm run dev"
     environment:
       - PORT=3001
       - HOST=0.0.0.0
@@ -17,6 +18,7 @@ services:
     ports:
       - "3001:3001"
     volumes:
+      - ./:/app
       - gcal_tokens:/app/data
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
@@ -29,19 +31,16 @@ volumes:
   gcal_tokens:
     driver: local
 
-# Para produção em Docker Swarm, adicione:
-# Usar configuração similar à acima mas adicionar 
-# configs ou secrets para credenciais sensíveis
+# Opcional para Swarm em produção:
+# 
+# networks:
+#   frontend:
+#     external: true
+#   backend:
+#     external: true
 #
-# deploy:
-#   replicas: 1
-#   restart_policy:
-#     condition: on-failure
-#   update_config:
-#     parallelism: 1
-#     delay: 10s
-#     order: start-first
-#   resources:
-#     limits:
-#       cpus: '0.5'
-#       memory: 512M 
+# secrets:
+#   google_client_id:
+#     external: true
+#   google_client_secret:
+#     external: true 
