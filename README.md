@@ -23,6 +23,14 @@ The server provides the following MCP tools for Google Calendar management:
 - `delete-event`: Delete a calendar event
 - `list-colors`: List available colors for events and calendars
 
+### What's New in v0.1.0
+
+- **Multi-platform Docker support**: Now built for AMD64, ARM64, and ARMv7
+- **Docker Swarm ready**: Added Swarm deployment configurations and resource limits
+- **Better container health checks**: Enhanced container monitoring
+- **GitHub Actions integration**: Automated builds for multi-architecture images
+- **Improved resource management**: Optimized memory and CPU configurations
+
 ## Architecture
 
 The project follows a clean architecture approach with:
@@ -30,6 +38,7 @@ The project follows a clean architecture approach with:
 - **Strong typing**: Consistent type definitions using Zod schemas and TypeScript
 - **Modular design**: Separation of concerns between authentication, services, and tools
 - **Docker support**: Multi-platform container deployment for ease of use
+- **Swarm ready**: Configuration optimized for Docker Swarm deployments
 
 ## Getting Started
 
@@ -77,9 +86,8 @@ The project follows a clean architecture approach with:
 For production deployment with Docker Swarm:
 
 ```bash
-# Build and push the image to Docker Hub
-docker build -t g2ntech/g2n-mcp-gcal-sse:latest .
-docker push g2ntech/g2n-mcp-gcal-sse:latest
+# Initialize swarm if not already done
+docker swarm init
 
 # Create Docker secrets for sensitive information (recommended)
 echo "your-client-id" | docker secret create google_client_id -
@@ -89,43 +97,28 @@ echo "your-client-secret" | docker secret create google_client_secret -
 docker stack deploy -c docker-compose.yml g2n-mcp-gcal
 ```
 
-For a more secure setup with Docker Swarm, modify the `docker-compose.yml` to use secrets instead of environment variables:
-
-```yaml
-services:
-  mcp-gcal-sse:
-    # ... other configurations
-    secrets:
-      - google_client_id
-      - google_client_secret
-    environment:
-      - PORT=3001
-      - HOST=0.0.0.0
-      - GOOGLE_CLIENT_ID_FILE=/run/secrets/google_client_id
-      - GOOGLE_CLIENT_SECRET_FILE=/run/secrets/google_client_secret
-      - TOKEN_STORAGE_PATH=/app/data/tokens.json
-
-secrets:
-  google_client_id:
-    external: true
-  google_client_secret:
-    external: true
-```
+For a more secure setup with Docker Swarm, uncomment and use the examples in the `docker-compose.yml` file to use secrets instead of environment variables.
 
 After deployment, navigate to `http://your-server:3001/auth` to complete the OAuth authorization flow.
 
 ## Multi-platform Support
 
 The Docker image is built for multiple platforms including:
-- linux/amd64
-- linux/arm64
-- linux/arm/v7
+- linux/amd64 (Intel/AMD processors)
+- linux/arm64 (ARM64 processors like Raspberry Pi 4, Apple Silicon M1/M2/M3)
+- linux/arm/v7 (ARMv7 processors like Raspberry Pi 3)
 
-To build a multi-architecture image:
+To build a multi-architecture image using our provided script:
+
+```bash
+npm run docker:build-multi
+```
+
+Or manually:
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
-  -t g2ntech/g2n-mcp-gcal-sse:latest \
+  -t gabrielg2n/g2n-mcp-gcal-sse:0.1.0 \
   --push .
 ```
 
@@ -190,6 +183,16 @@ To set up a development environment:
    npm run build
    ```
 
+5. Build Docker image:
+   ```bash
+   npm run docker:build
+   ```
+
+6. Push Docker image:
+   ```bash
+   npm run docker:push
+   ```
+
 ## Project Structure
 
 ```
@@ -200,6 +203,23 @@ src/
 ├── types/             # Type definitions with Zod schemas
 └── index.ts           # Application entry point
 ```
+
+## CI/CD with GitHub Actions
+
+The project includes a GitHub Actions workflow that:
+
+1. Builds the Docker image for multiple platforms
+2. Pushes the image to Docker Hub
+3. Creates appropriate tags based on git tags (for releases) and commits
+
+To create a new release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This will trigger the workflow to build and publish the tagged release.
 
 ## Persistence and Data Management
 

@@ -2,14 +2,8 @@ version: '3.8'
 
 services:
   mcp-gcal-sse:
-    image: node:18-alpine
+    image: gabrielg2n/g2n-mcp-gcal-sse:0.1.0
     container_name: g2n-mcp-gcal-sse
-    restart: unless-stopped
-    working_dir: /app
-    command: >
-      sh -c "npm install &&
-             npm run build &&
-             npm start"
     environment:
       - PORT=3001
       - HOST=0.0.0.0
@@ -19,7 +13,6 @@ services:
     ports:
       - "3001:3001"
     volumes:
-      - ./:/app
       - gcal_tokens:/app/data
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
@@ -27,21 +20,54 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    networks:
+      - default
 
 volumes:
   gcal_tokens:
     driver: local
 
-# Opcional para Swarm em produção:
-# 
-# networks:
-#   frontend:
-#     external: true
-#   backend:
-#     external: true
+networks:
+  default:
+    driver: overlay
+    attachable: true
+
+# Configurações para Docker Swarm em produção
+# Descomente e ajuste conforme necessário
 #
 # secrets:
 #   google_client_id:
 #     external: true
 #   google_client_secret:
-#     external: true 
+#     external: true
+#
+# Exemplo de uso com secrets:
+# services:
+#   mcp-gcal-sse:
+#     environment:
+#       - PORT=3001
+#       - HOST=0.0.0.0
+#       - TOKEN_STORAGE_PATH=/app/data/tokens.json
+#     secrets:
+#       - source: google_client_id
+#         target: GOOGLE_CLIENT_ID
+#       - source: google_client_secret
+#         target: GOOGLE_CLIENT_SECRET 

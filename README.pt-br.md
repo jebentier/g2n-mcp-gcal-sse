@@ -1,12 +1,12 @@
-# Servidor G2N MCP SSE para Google Calendar
+# Servidor G2N MCP Google Calendar SSE
 
-🌎 Este README está disponível em múltiplos idiomas:
-- 🇺🇸 [English](README.md)
+🌎 Este README está disponível em vários idiomas:
+- 🇺🇸 [Inglês](README.md)
 - 🇧🇷 [Português](README.pt-br.md)
 
 ## Visão Geral
 
-O Servidor G2N MCP Google Calendar SSE é uma implementação de servidor Model Context Protocol (MCP) que fornece integração com o Google Calendar através de Server-Sent Events (SSE). Este servidor expõe funcionalidades do Google Calendar como ferramentas que podem ser utilizadas por modelos de IA e aplicações como Cursor, Claude e n8n para interagir com o Google Calendar.
+O G2N MCP Google Calendar SSE Server é uma implementação de servidor Model Context Protocol (MCP) que fornece integração com o Google Calendar através de Server-Sent Events (SSE). Este servidor expõe a funcionalidade do Google Calendar como ferramentas que podem ser usadas por modelos de IA e aplicações como Cursor, Claude e n8n para interagir com o Google Calendar.
 
 Construído com a versão mais recente do SDK MCP, este servidor oferece uma integração robusta entre modelos de IA compatíveis com MCP e serviços do Google Calendar.
 
@@ -18,26 +18,35 @@ O servidor fornece as seguintes ferramentas MCP para gerenciamento do Google Cal
 - `get-calendar`: Obter detalhes de um calendário específico
 - `list-events`: Listar eventos de um calendário com opções de filtragem
 - `get-event`: Obter informações detalhadas sobre um evento específico
-- `create-event`: Criar um novo evento no calendário
-- `update-event`: Atualizar um evento existente no calendário
-- `delete-event`: Excluir um evento do calendário
+- `create-event`: Criar um novo evento de calendário
+- `update-event`: Atualizar um evento de calendário existente
+- `delete-event`: Excluir um evento de calendário
 - `list-colors`: Listar cores disponíveis para eventos e calendários
+
+### Novidades na v0.1.0
+
+- **Suporte Docker multi-plataforma**: Agora compilado para AMD64, ARM64 e ARMv7
+- **Pronto para Docker Swarm**: Adicionadas configurações de implantação Swarm e limites de recursos
+- **Verificações de saúde do contêiner aprimoradas**: Monitoramento aprimorado do contêiner
+- **Integração com GitHub Actions**: Builds automatizados para imagens multi-arquitetura
+- **Gerenciamento de recursos aprimorado**: Configurações otimizadas de memória e CPU
 
 ## Arquitetura
 
 O projeto segue uma abordagem de arquitetura limpa com:
 
 - **Tipagem forte**: Definições de tipo consistentes usando esquemas Zod e TypeScript
-- **Design modular**: Separação de responsabilidades entre autenticação, serviços e ferramentas
-- **Suporte a Docker**: Implantação de contêiner multiplataforma para facilidade de uso
+- **Design modular**: Separação de preocupações entre autenticação, serviços e ferramentas
+- **Suporte Docker**: Implantação de contêiner multi-plataforma para facilidade de uso
+- **Pronto para Swarm**: Configuração otimizada para implantações Docker Swarm
 
 ## Começando
 
 ### Pré-requisitos
 
 - Docker e Docker Compose instalados
-- Projeto no Google Cloud com API Calendar habilitada
-- ID do Cliente OAuth 2.0 e Chave Secreta
+- Projeto do Google Cloud com API Calendar ativada
+- ID do Cliente OAuth 2.0 e Secret do Cliente
 
 ### Início Rápido com Docker
 
@@ -52,7 +61,7 @@ O projeto segue uma abordagem de arquitetura limpa com:
    cp .env.example .env
    ```
 
-3. Edite o arquivo `.env` e preencha com suas credenciais da API Google:
+3. Edite o arquivo `.env` e preencha suas credenciais da API do Google:
    ```
    GOOGLE_CLIENT_ID=seu-client-id
    GOOGLE_CLIENT_SECRET=seu-client-secret
@@ -67,72 +76,56 @@ O projeto segue uma abordagem de arquitetura limpa com:
    ```
    http://localhost:3001/auth
    ```
-
+   
 6. Siga o fluxo OAuth em seu navegador para conceder acesso ao seu Google Calendar.
 
-7. Após a autorização ser concluída, o servidor estará disponível em http://localhost:3001
+7. Uma vez que a autorização esteja completa, o servidor estará disponível em http://localhost:3001
 
-### Implantação no Docker Swarm
+### Implantação Docker Swarm
 
 Para implantação em produção com Docker Swarm:
 
 ```bash
-# Construa e envie a imagem para o Docker Hub
-docker build -t g2ntech/g2n-mcp-gcal-sse:latest .
-docker push g2ntech/g2n-mcp-gcal-sse:latest
+# Inicialize o swarm se ainda não estiver feito
+docker swarm init
 
-# Crie segredos Docker para informações sensíveis (recomendado)
+# Crie secrets do Docker para informações sensíveis (recomendado)
 echo "seu-client-id" | docker secret create google_client_id -
 echo "seu-client-secret" | docker secret create google_client_secret -
 
-# Implante a stack
+# Implante o stack
 docker stack deploy -c docker-compose.yml g2n-mcp-gcal
 ```
 
-Para uma configuração mais segura com Docker Swarm, modifique o `docker-compose.yml` para usar segredos em vez de variáveis de ambiente:
-
-```yaml
-services:
-  mcp-gcal-sse:
-    # ... outras configurações
-    secrets:
-      - google_client_id
-      - google_client_secret
-    environment:
-      - PORT=3001
-      - HOST=0.0.0.0
-      - GOOGLE_CLIENT_ID_FILE=/run/secrets/google_client_id
-      - GOOGLE_CLIENT_SECRET_FILE=/run/secrets/google_client_secret
-      - TOKEN_STORAGE_PATH=/app/data/tokens.json
-
-secrets:
-  google_client_id:
-    external: true
-  google_client_secret:
-    external: true
-```
+Para uma configuração mais segura com Docker Swarm, descomente e use os exemplos no arquivo `docker-compose.yml` para usar secrets em vez de variáveis de ambiente.
 
 Após a implantação, navegue até `http://seu-servidor:3001/auth` para completar o fluxo de autorização OAuth.
 
-## Suporte a Múltiplas Plataformas
+## Suporte Multi-plataforma
 
-A imagem Docker é construída para várias plataformas, incluindo:
-- linux/amd64
-- linux/arm64
-- linux/arm/v7
+A imagem Docker é construída para múltiplas plataformas, incluindo:
+- linux/amd64 (Processadores Intel/AMD)
+- linux/arm64 (Processadores ARM64 como Raspberry Pi 4, Apple Silicon M1/M2/M3)
+- linux/arm/v7 (Processadores ARMv7 como Raspberry Pi 3)
 
-Para construir uma imagem multi-arquitetura:
+Para construir uma imagem multi-arquitetura usando nosso script fornecido:
+
+```bash
+npm run docker:build-multi
+```
+
+Ou manualmente:
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
-  -t g2ntech/g2n-mcp-gcal-sse:latest \
+  -t gabrielg2n/g2n-mcp-gcal-sse:0.1.0 \
   --push .
 ```
 
 ## Fluxo de Autenticação
 
 1. Inicie o servidor usando Docker ou diretamente
-2. Navegue até o endpoint `/auth` no seu navegador
+2. Navegue até o endpoint `/auth` em seu navegador
 3. Conceda permissões à aplicação usando sua conta Google
 4. Após a autorização, o servidor armazenará tokens de atualização para acesso contínuo
 5. O servidor atualizará automaticamente os tokens quando necessário
@@ -150,7 +143,7 @@ Você pode usar este servidor com o Cursor AI configurando a conexão MCP nas su
 
 1. Abra as configurações do Cursor
 2. Configure a URL do servidor MCP: `http://localhost:3001/sse`
-3. Comece a usar os recursos do Google Calendar através de comandos de IA
+3. Comece a usar os recursos do Google Calendar através de comandos AI
 
 ### Claude Desktop
 
@@ -158,13 +151,13 @@ Para o Claude Desktop:
 
 1. Navegue até Configurações > MCP
 2. Adicione uma nova conexão MCP com a URL: `http://localhost:3001/sse`
-3. Acesse as funcionalidades do Google Calendar através de suas conversas
+3. Acesse a funcionalidade do Google Calendar através de suas conversas
 
 ### n8n
 
 1. No n8n, adicione um novo nó MCP
 2. Configure o nó MCP com a URL do endpoint SSE: `http://localhost:3001/sse`
-3. Utilize as ferramentas de calendário expostas em seus fluxos de trabalho
+3. Use as ferramentas de calendário expostas em seus workflows
 
 ## Desenvolvimento
 
@@ -190,6 +183,16 @@ Para configurar um ambiente de desenvolvimento:
    npm run build
    ```
 
+5. Construa a imagem Docker:
+   ```bash
+   npm run docker:build
+   ```
+
+6. Envie a imagem Docker:
+   ```bash
+   npm run docker:push
+   ```
+
 ## Estrutura do Projeto
 
 ```
@@ -200,6 +203,23 @@ src/
 ├── types/             # Definições de tipos com esquemas Zod
 └── index.ts           # Ponto de entrada da aplicação
 ```
+
+## CI/CD com GitHub Actions
+
+O projeto inclui um workflow do GitHub Actions que:
+
+1. Constrói a imagem Docker para múltiplas plataformas
+2. Envia a imagem para o Docker Hub
+3. Cria tags apropriadas baseadas em tags git (para releases) e commits
+
+Para criar uma nova release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Isso acionará o workflow para construir e publicar a release marcada.
 
 ## Persistência e Gerenciamento de Dados
 
