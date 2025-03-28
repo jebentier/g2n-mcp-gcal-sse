@@ -3,7 +3,7 @@ import path from 'path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { GoogleCalendarService } from './services/googleCalendar.js';
-import { createCalendarTools } from './tools/calendarTools.js';
+import { registerCalendarTools } from './tools/calendarTools.js';
 import { TokenManager } from './auth/tokenManager.js';
 import { OAuthHandler } from './auth/oauthHandler.js';
 import { z } from 'zod';
@@ -73,7 +73,7 @@ async function main() {
   const calendarService = new GoogleCalendarService(oauthHandler, tokenManager);
   
   // Inicializa o servidor MCP
-  const server = new McpServer({
+  const mcpServer = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
   });
@@ -90,12 +90,14 @@ async function main() {
   const transports: {[sessionId: string]: SSEServerTransport} = {};
   
   // Endpoint de saúde
-  app.get('/health', (_, res) => {
+  app.get('/health', async (_, res) => {
+    const isAuthenticated = await calendarService.isAuthenticated();
+    
     res.status(200).json({ 
       status: 'ok', 
       server: SERVER_NAME, 
       version: SERVER_VERSION,
-      authenticated: false // Será atualizado abaixo
+      authenticated: isAuthenticated 
     });
   });
   
@@ -138,7 +140,7 @@ async function main() {
       `);
       
       // Registra as ferramentas do Google Calendar após autenticação bem-sucedida
-      registerCalendarTools();
+      registerCalendarTools(mcpServer, calendarService);
       
     } catch (error) {
       console.error('Erro durante autorização OAuth:', error);
@@ -175,7 +177,13 @@ async function main() {
       console.log(`Conexão SSE fechada: ${transport.sessionId}`);
     });
     
-    await server.connect(transport);
+    await mcpServer.connect(transport);
+
+    // Verifica se já está autenticado, e se estiver, registra as ferramentas
+    const isAuthenticated = await calendarService.isAuthenticated();
+    if (isAuthenticated) {
+      registerCalendarTools(mcpServer, calendarService);
+    }
   });
   
   // Endpoint para receber mensagens dos clientes
@@ -184,62 +192,29 @@ async function main() {
     const transport = transports[sessionId];
     
     if (transport) {
-      await transport.handlePostMessage(req, res);
+      try {
+        await transport.handlePostMessage(req, res);
+      } catch (error) {
+        console.error(`Erro ao processar mensagem para sessão ${sessionId}:`, error);
+        res.status(500).send('Erro ao processar mensagem');
+      }
     } else {
       res.status(400).send('Nenhum transporte encontrado para o sessionId fornecido');
     }
   });
   
-  // Função para registrar as ferramentas do Calendar
-  const registerCalendarTools = () => {
-    // Remove todas as ferramentas existentes
-    server.clearTools();
-    
-    // Registra as ferramentas do Google Calendar
-    const calendarTools = createCalendarTools(calendarService);
-    calendarTools.forEach(tool => server.registerTool(tool));
-    
-    console.log('Ferramentas do Google Calendar registradas');
-  };
-  
-  // Tenta inicializar o serviço com tokens existentes
-  const isAuthenticated = await calendarService.initialize();
-  
-  if (isAuthenticated) {
-    console.log('Serviço do Google Calendar inicializado com tokens existentes');
-    registerCalendarTools();
-  } else {
-    console.log('Nenhum token válido encontrado. É necessário autenticar pelo endpoint /auth');
-  }
-  
-  // Atualiza o endpoint de saúde para incluir o status de autenticação
-  app.get('/health', async (_, res) => {
-    const authenticated = await calendarService.initialize();
-    res.status(200).json({ 
-      status: 'ok', 
-      server: SERVER_NAME, 
-      version: SERVER_VERSION,
-      authenticated
-    });
-  });
-  
   // Inicia o servidor
-  app.listen(parseInt(config.PORT), config.HOST, () => {
-    console.log(`Servidor MCP Google Calendar iniciado em ${config.HOST}:${config.PORT}`);
-    console.log('Endpoints disponíveis:');
-    console.log(`- Saúde: http://${config.HOST === '0.0.0.0' ? 'localhost' : config.HOST}:${config.PORT}/health`);
-    console.log(`- Autenticação: http://${config.HOST === '0.0.0.0' ? 'localhost' : config.HOST}:${config.PORT}/auth`);
-    console.log(`- SSE: http://${config.HOST === '0.0.0.0' ? 'localhost' : config.HOST}:${config.PORT}/sse`);
-    
-    if (!isAuthenticated) {
-      console.log('\nPara configurar a autenticação, acesse:');
-      console.log(`http://${config.HOST === '0.0.0.0' ? 'localhost' : config.HOST}:${config.PORT}/auth`);
-    }
+  const PORT = parseInt(config.PORT, 10);
+  const HOST = config.HOST;
+  
+  app.listen(PORT, HOST, () => {
+    console.log(`Servidor em execução em http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+    console.log(`Para autorizar o aplicativo, visite http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/auth`);
   });
 }
 
-// Inicia a aplicação
+// Inicia o aplicativo
 main().catch(error => {
-  console.error('Erro fatal ao iniciar o servidor:', error);
+  console.error('Erro fatal:', error);
   process.exit(1);
 }); 
