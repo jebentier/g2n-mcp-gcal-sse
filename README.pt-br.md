@@ -126,7 +126,8 @@ docker stack deploy -c docker-compose.yml g2n-mcp-gcal --with-registry-auth
 
 3. Notas importantes para uso com Traefik:
    - A variável `PUBLIC_URL` é **crucial** para que os callbacks OAuth funcionem
-   - Ela deve corresponder à URL pública onde seu serviço está acessível
+   - Ela **deve** incluir o protocolo (http:// ou https://) e corresponder à URL pública onde seu serviço está acessível
+   - Exemplo: `PUBLIC_URL=https://mcp-gcal.seudominio.com`
    - Esta URL será usada para redirecionamentos do OAuth do Google
    - Os labels do Traefik estão pré-configurados no arquivo docker-compose.yml
    - Para HTTPS, descomente os labels Traefik seguros no docker-compose.yml

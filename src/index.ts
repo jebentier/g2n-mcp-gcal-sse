@@ -64,8 +64,16 @@ async function main() {
   // Determina a URL de redirecionamento
   let baseUrl: string;
   if (config.PUBLIC_URL) {
-    // Se PUBLIC_URL estiver definido, usa como base (útil para contêineres/proxies)
-    baseUrl = config.PUBLIC_URL;
+    // Garantir que PUBLIC_URL sempre comece com http:// ou https://
+    const publicUrl = config.PUBLIC_URL.trim();
+    
+    if (publicUrl.startsWith('http://') || publicUrl.startsWith('https://')) {
+      baseUrl = publicUrl;
+    } else {
+      // Se não tiver protocolo, adiciona https:// por padrão
+      baseUrl = `https://${publicUrl}`;
+      console.log(`PUBLIC_URL sem protocolo, usando HTTPS por padrão: ${baseUrl}`);
+    }
   } else if (config.HOST === '0.0.0.0') {
     // Se o HOST for 0.0.0.0, usa localhost para URLs públicas
     baseUrl = `http://localhost:${config.PORT}`;
@@ -74,7 +82,17 @@ async function main() {
     baseUrl = `http://${config.HOST}:${config.PORT}`;
   }
   
-  const redirectUri = `${baseUrl}${config.OAUTH_REDIRECT_PATH}`;
+  // Remover barras finais para uma construção de URL consistente
+  if (baseUrl.endsWith('/')) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
+  
+  // Garantir que o caminho de redirecionamento começa com /
+  const redirectPath = config.OAUTH_REDIRECT_PATH.startsWith('/') 
+    ? config.OAUTH_REDIRECT_PATH 
+    : `/${config.OAUTH_REDIRECT_PATH}`;
+  
+  const redirectUri = `${baseUrl}${redirectPath}`;
   console.log(`URL de redirecionamento OAuth: ${redirectUri}`);
   
   // Cria o manipulador OAuth
