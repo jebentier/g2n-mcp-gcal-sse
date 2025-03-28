@@ -7,6 +7,7 @@ services:
     environment:
       - PORT=3001
       - HOST=0.0.0.0
+      - PUBLIC_URL=${PUBLIC_URL:-http://localhost:3001}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - TOKEN_STORAGE_PATH=/app/data/tokens.json
@@ -15,7 +16,7 @@ services:
     volumes:
       - gcal_tokens:/app/data
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://0.0.0.0:3001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -38,6 +39,16 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
+      labels:
+        # Configurações do Traefik
+        - "traefik.enable=true"
+        - "traefik.http.routers.mcp-gcal-sse.rule=Host(`${TRAEFIK_HOST:-mcp-gcal.localhost}`)"
+        - "traefik.http.services.mcp-gcal-sse.loadbalancer.server.port=3001"
+        - "traefik.http.routers.mcp-gcal-sse.entrypoints=web"
+        # Opcional: habilitar HTTPS
+        # - "traefik.http.routers.mcp-gcal-sse-secure.rule=Host(`${TRAEFIK_HOST:-mcp-gcal.localhost}`)"
+        # - "traefik.http.routers.mcp-gcal-sse-secure.entrypoints=websecure"
+        # - "traefik.http.routers.mcp-gcal-sse-secure.tls=true"
     networks:
       - default
 
@@ -65,6 +76,7 @@ networks:
 #     environment:
 #       - PORT=3001
 #       - HOST=0.0.0.0
+#       - PUBLIC_URL=${PUBLIC_URL}
 #       - TOKEN_STORAGE_PATH=/app/data/tokens.json
 #     secrets:
 #       - source: google_client_id

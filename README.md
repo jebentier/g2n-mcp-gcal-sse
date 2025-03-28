@@ -102,6 +102,41 @@ For a more secure setup with Docker Swarm, uncomment and use the examples in the
 
 After deployment, navigate to `http://your-server:3001/auth` to complete the OAuth authorization flow.
 
+### Docker Swarm with Traefik Deployment
+
+When deploying in a Docker Swarm environment with Traefik, follow these steps to ensure proper configuration:
+
+1. Set the `PUBLIC_URL` environment variable to match your domain:
+
+```bash
+# Create a .env file for your deployment
+cat > .env << EOF
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+PUBLIC_URL=https://mcp-gcal.yourdomain.com
+TRAEFIK_HOST=mcp-gcal.yourdomain.com
+EOF
+```
+
+2. Deploy the stack with the environment variables:
+
+```bash
+docker stack deploy -c docker-compose.yml g2n-mcp-gcal --with-registry-auth
+```
+
+3. Important notes for using behind Traefik:
+   - The `PUBLIC_URL` variable is **critical** for OAuth callbacks to work
+   - It must match the public URL where your service is accessible
+   - This URL will be used for Google OAuth redirects
+   - Traefik labels are preconfigured in the docker-compose.yml file
+   - For HTTPS, uncomment the secure Traefik labels in docker-compose.yml
+
+4. If using Portainer for managing your Swarm:
+   - In the Portainer stack deployment UI, add the environment variables:
+     - `PUBLIC_URL`: https://mcp-gcal.yourdomain.com
+     - `TRAEFIK_HOST`: mcp-gcal.yourdomain.com
+   - Deploy your stack as usual through the Portainer interface
+
 ## Multi-platform Support
 
 The Docker image is built for multiple platforms including:

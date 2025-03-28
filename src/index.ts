@@ -21,6 +21,7 @@ const ConfigSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string(),
   TOKEN_STORAGE_PATH: z.string().optional(),
   OAUTH_REDIRECT_PATH: z.string().default('/oauth/callback'),
+  PUBLIC_URL: z.string().optional(),
 });
 
 // Função para carregar configurações do ambiente
@@ -33,6 +34,7 @@ const loadConfig = () => {
       GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
       TOKEN_STORAGE_PATH: process.env.TOKEN_STORAGE_PATH,
       OAUTH_REDIRECT_PATH: process.env.OAUTH_REDIRECT_PATH,
+      PUBLIC_URL: process.env.PUBLIC_URL,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -60,7 +62,20 @@ async function main() {
   });
   
   // Determina a URL de redirecionamento
-  const redirectUri = `http://${config.HOST === '0.0.0.0' ? 'localhost' : config.HOST}:${config.PORT}${config.OAUTH_REDIRECT_PATH}`;
+  let baseUrl: string;
+  if (config.PUBLIC_URL) {
+    // Se PUBLIC_URL estiver definido, usa como base (útil para contêineres/proxies)
+    baseUrl = config.PUBLIC_URL;
+  } else if (config.HOST === '0.0.0.0') {
+    // Se o HOST for 0.0.0.0, usa localhost para URLs públicas
+    baseUrl = `http://localhost:${config.PORT}`;
+  } else {
+    // Caso contrário, usa o HOST definido
+    baseUrl = `http://${config.HOST}:${config.PORT}`;
+  }
+  
+  const redirectUri = `${baseUrl}${config.OAUTH_REDIRECT_PATH}`;
+  console.log(`URL de redirecionamento OAuth: ${redirectUri}`);
   
   // Cria o manipulador OAuth
   const oauthHandler = new OAuthHandler({
@@ -216,8 +231,8 @@ async function main() {
   const HOST = config.HOST;
   
   app.listen(PORT, HOST, () => {
-    console.log(`Servidor em execução em http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
-    console.log(`Para autorizar o aplicativo, visite http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/auth`);
+    console.log(`Servidor em execução em ${baseUrl}`);
+    console.log(`Para autorizar o aplicativo, visite ${baseUrl}/auth`);
   });
 }
 
