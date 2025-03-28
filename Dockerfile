@@ -43,10 +43,6 @@ RUN mkdir -p /app/data && \
 # Define volume para persistência de tokens
 VOLUME ["/app/data"]
 
-# Healthcheck para garantir que o serviço está rodando corretamente
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-3001}/health || exit 1
-
 # Expõe a porta configurada ou 3001 como padrão
 EXPOSE ${PORT:-3001}
 
