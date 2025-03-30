@@ -136,6 +136,7 @@ async function main() {
   // Para suportar múltiplas conexões simultâneas, mantemos um objeto de pesquisa
   // que mapeia sessionId para o transporte correspondente
   const transports: {[sessionId: string]: SSEServerTransport} = {};
+  const activeConnections: {[sessionId: string]: Response} = {}; // Para armazenar as conexões ativas
   
   // Endpoint de saúde
   app.get('/health', async (_: Request, res: Response) => {
@@ -212,7 +213,10 @@ async function main() {
   
   // Endpoint SSE para eventos
   app.get('/sse', function(req: Request, res: Response) {
-    // Configuração de cabeçalhos SSE
+    // Gerar um ID de sessão único
+    const sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
+    
+    // Configuração de cabeçalhos SSE manualmente
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
@@ -220,47 +224,86 @@ async function main() {
       'X-Accel-Buffering': 'no', // Desativa o buffering para proxies Nginx
       'Access-Control-Allow-Origin': '*'
     });
+
+    // Armazenar a conexão
+    activeConnections[sessionId] = res;
+    
+    console.log(`Nova conexão SSE estabelecida: ${sessionId}`);
+    
+    // Enviar evento inicial com o sessionId
+    res.write(`data: ${JSON.stringify({ type: 'connected', sessionId })}\n\n`);
     
     // Função para manter a conexão viva
     const keepAlive = setInterval(() => {
-      res.write(': keepalive\n\n');
+      if (activeConnections[sessionId]) {
+        try {
+          res.write(': keepalive\n\n');
+        } catch (error) {
+          // Se houver erro ao escrever, a conexão provavelmente já foi fechada
+          clearInterval(keepAlive);
+          delete activeConnections[sessionId];
+          delete transports[sessionId];
+        }
+      } else {
+        clearInterval(keepAlive);
+      }
     }, 30000); // a cada 30 segundos
-    
-    // Inicializar transporte SSE e conectar ao servidor MCP
-    const transport = new SSEServerTransport('/messages', res);
-    transports[transport.sessionId] = transport;
-    
-    console.log(`Nova conexão SSE estabelecida: ${transport.sessionId}`);
     
     // Limpar recursos quando a conexão for fechada
     res.on('close', () => {
       clearInterval(keepAlive);
-      delete transports[transport.sessionId];
-      console.log(`Conexão SSE fechada: ${transport.sessionId}`);
+      delete activeConnections[sessionId];
+      delete transports[sessionId];
+      console.log(`Conexão SSE fechada: ${sessionId}`);
     });
+    
+    // Criar o transporte MCP para este sessionId, mas não envie cabeçalhos pelo transporte
+    // Criar o transporte apenas para o /messages endpoint, não para o SSE diretamente
+    const dummyRes = {
+      write: () => {}, // Função vazia para não interferir na resposta SSE
+      end: () => {},
+      on: () => {}
+    } as unknown as Response;
+    
+    // Este transporte será usado apenas para receber mensagens via /messages
+    const transport = new SSEServerTransport('/messages', dummyRes);
+    transports[sessionId] = transport;
+    
+    // Sobrescrever o método send para redirecionar para nossa conexão SSE
+    transport.send = async (message) => {
+      if (activeConnections[sessionId]) {
+        try {
+          const data = JSON.stringify(message);
+          activeConnections[sessionId].write(`data: ${data}\n\n`);
+        } catch (error) {
+          console.error(`Erro ao enviar mensagem SSE: ${error}`);
+        }
+      }
+    };
     
     // Conectar ao servidor MCP
     (async () => {
       try {
-        // Enviar um evento inicial para inicializar a conexão
-        res.write(`data: ${JSON.stringify({ type: 'connected', sessionId: transport.sessionId })}\n\n`);
+        // Verificar autenticação antes de tentar conectar
+        const isAuthenticated = await calendarService.isAuthenticated();
         
         // Conectar o transporte ao servidor MCP
         await mcpServer.connect(transport);
         
-        // Verifica se já está autenticado, e se estiver, registra as ferramentas
-        const isAuthenticated = await calendarService.isAuthenticated();
         if (isAuthenticated) {
           registerCalendarTools(mcpServer, calendarService);
           // Informar ao cliente que estamos autenticados
-          res.write(`data: ${JSON.stringify({ type: 'authenticated' })}\n\n`);
+          if (activeConnections[sessionId]) {
+            activeConnections[sessionId].write(`data: ${JSON.stringify({ type: 'authenticated' })}\n\n`);
+          }
         } else {
           // Informar ao cliente que precisamos de autenticação
-          res.write(`data: ${JSON.stringify({ type: 'auth_required', authUrl: `${baseUrl}/auth` })}\n\n`);
+          if (activeConnections[sessionId]) {
+            activeConnections[sessionId].write(`data: ${JSON.stringify({ type: 'auth_required', authUrl: `${baseUrl}/auth` })}\n\n`);
+          }
         }
       } catch (error) {
         console.error(`Erro ao configurar conexão SSE: ${error}`);
-        // Não tente fechar a conexão aqui, apenas registre o erro
       }
     })();
   });
@@ -287,10 +330,28 @@ async function main() {
       return;
     }
     
-    // Processar a mensagem para o transporte
+    // Verificar se a conexão SSE ainda está ativa
+    if (!activeConnections[sessionId]) {
+      res.status(410).json({
+        error: 'connection_closed',
+        message: 'A conexão SSE para esta sessão foi fechada. Reconecte via SSE.'
+      });
+      return;
+    }
+    
+    // Processar a mensagem no transporte
     (async () => {
       try {
-        await transport.handlePostMessage(req, res);
+        // Extrair a mensagem JSON da solicitação
+        const message = req.body;
+        
+        // Simular o processo handlePostMessage diretamente
+        if (transport.onmessage) {
+          await transport.onmessage(message);
+        }
+        
+        // Responder com sucesso
+        res.status(200).json({ success: true });
       } catch (error) {
         console.error(`Erro ao processar mensagem para sessão ${sessionId}:`, error);
         
