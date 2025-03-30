@@ -213,35 +213,48 @@ async function main() {
   // Endpoint SSE para eventos
   app.get('/sse', function(_: Request, res: Response) {
     try {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Connection', 'keep-alive');
-      res.flushHeaders();
-      
-      const transport = new SSEServerTransport('/messages', res);
-      transports[transport.sessionId] = transport;
-      
-      console.log(`Nova conexão SSE estabelecida: ${transport.sessionId}`);
-      
-      res.on('close', () => {
-        delete transports[transport.sessionId];
-        console.log(`Conexão SSE fechada: ${transport.sessionId}`);
+      // Configurar cabeçalhos SSE manualmente para garantir que estejam enviados
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
       });
       
-      (async () => {
+      // Enviar um evento inicial para manter a conexão aberta
+      res.write(`data: ${JSON.stringify({ type: 'connection-established' })}\n\n`);
+      
+      // Criar o transporte SSE depois que os cabeçalhos foram enviados
+      setTimeout(() => {
         try {
-          await mcpServer.connect(transport);
-
-          // Verifica se já está autenticado, e se estiver, registra as ferramentas
-          const isAuthenticated = await calendarService.isAuthenticated();
-          if (isAuthenticated) {
-            registerCalendarTools(mcpServer, calendarService);
-          }
+          const transport = new SSEServerTransport('/messages', res);
+          transports[transport.sessionId] = transport;
+          
+          console.log(`Nova conexão SSE estabelecida: ${transport.sessionId}`);
+          
+          res.on('close', () => {
+            delete transports[transport.sessionId];
+            console.log(`Conexão SSE fechada: ${transport.sessionId}`);
+          });
+          
+          // Conectar ao servidor MCP depois de um pequeno delay
+          setTimeout(async () => {
+            try {
+              await mcpServer.connect(transport);
+              
+              // Verifica se já está autenticado, e se estiver, registra as ferramentas
+              const isAuthenticated = await calendarService.isAuthenticated();
+              if (isAuthenticated) {
+                registerCalendarTools(mcpServer, calendarService);
+              }
+            } catch (error) {
+              console.error(`Erro ao conectar transporte SSE: ${error}`);
+            }
+          }, 300);
         } catch (error) {
-          console.error(`Erro ao conectar transporte SSE: ${error}`);
+          console.error(`Erro ao criar transporte SSE: ${error}`);
         }
-      })();
+      }, 100);
     } catch (error) {
       console.error(`Erro ao inicializar conexão SSE: ${error}`);
       // Não tente enviar resposta se os cabeçalhos já foram enviados
