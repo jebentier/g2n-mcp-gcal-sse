@@ -72,7 +72,9 @@ export class Server {
         await this.initializeMcpServer();
         console.log('Servidor MCP inicializado automaticamente');
       } else {
+        const authUrl = this.calendarService.getAuthUrl();
         console.log('Serviço do Google Calendar requer autenticação');
+        console.log(`URL de autenticação: ${authUrl}`);
       }
     } catch (error) {
       console.error('Erro ao tentar inicializar servidor MCP:', error);

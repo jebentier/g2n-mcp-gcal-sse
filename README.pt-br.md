@@ -23,7 +23,7 @@ O servidor fornece as seguintes ferramentas MCP para gerenciamento do Google Cal
 - `delete-event`: Excluir um evento de calendário
 - `list-colors`: Listar cores disponíveis para eventos e calendários
 
-### Novidades na v1.0.0
+### Novidades na v1.0.1
 
 - Primeira versão estável
 - Pronto para produção com suporte a Docker e Docker Swarm

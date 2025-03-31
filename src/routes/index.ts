@@ -82,11 +82,8 @@ export const createRouter = (
       const transport = new SSEServerTransport('/messages', res);
       transports[transport.sessionId] = transport;
       
-      console.log(`Nova conexão SSE estabelecida: ${transport.sessionId}`);
-      
       res.on('close', () => {
         delete transports[transport.sessionId];
-        console.log(`Conexão SSE fechada: ${transport.sessionId}`);
       });
       
       const mcpServer = server.getMcpServer();

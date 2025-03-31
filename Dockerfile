@@ -21,7 +21,7 @@ FROM node:18-alpine
 LABEL maintainer="Gabriel Augusto (@oaugustosgabriel)"
 LABEL org.g2ntech.name="G2N MCP Google Calendar SSE"
 LABEL org.g2ntech.description="Servidor MCP para Google Calendar usando SSE"
-LABEL org.g2ntech.version="1.0.0"
+LABEL org.g2ntech.version="1.0.1"
 LABEL org.g2ntech.github.repo="https://github.com/gabriel-g2n/g2n-mcp-gcal-sse"
 
 WORKDIR /app
