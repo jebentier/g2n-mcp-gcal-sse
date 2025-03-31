@@ -23,14 +23,15 @@ The server provides the following MCP tools for Google Calendar management:
 - `delete-event`: Delete a calendar event
 - `list-colors`: List available colors for events and calendars
 
-### What's New in v0.1.2
+### What's New in v1.0.0
 
-- **Multi-platform Docker support**: Now built for AMD64, ARM64, and ARMv7
-- **Docker Swarm ready**: Added Swarm deployment configs and resource limits
-- **Enhanced container health checks**: Improved container monitoring
-- **GitHub Actions integration**: Automated builds for multi-arch images
-- **Improved resource management**: Optimized memory and CPU settings
-- **Version fix**: Fixed version numbering across project files
+- First stable release
+- Production-ready with Docker and Docker Swarm support
+- Enhanced environment variables configuration
+- Improved connection URLs for different deployment scenarios
+- Better documentation for n8n integration
+- Traefik configuration guidelines
+- Multi-platform Docker images (amd64, arm64, arm/v7)
 
 ## Getting Started
 

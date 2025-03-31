@@ -23,14 +23,15 @@ O servidor fornece as seguintes ferramentas MCP para gerenciamento do Google Cal
 - `delete-event`: Excluir um evento de calendário
 - `list-colors`: Listar cores disponíveis para eventos e calendários
 
-### Novidades na v0.1.2
+### Novidades na v1.0.0
 
-- **Suporte Docker multi-plataforma**: Agora compilado para AMD64, ARM64 e ARMv7
-- **Pronto para Docker Swarm**: Adicionadas configurações de implantação Swarm e limites de recursos
-- **Verificações de saúde do contêiner aprimoradas**: Monitoramento aprimorado do contêiner
-- **Integração com GitHub Actions**: Builds automatizados para imagens multi-arquitetura
-- **Gerenciamento de recursos aprimorado**: Configurações otimizadas de memória e CPU
-- **Correção de versão**: Correção da numeração de versão em todos os arquivos do projeto
+- Primeira versão estável
+- Pronto para produção com suporte a Docker e Docker Swarm
+- Configuração aprimorada de variáveis de ambiente
+- URLs de conexão melhoradas para diferentes cenários de implantação
+- Melhor documentação para integração com n8n
+- Diretrizes de configuração do Traefik
+- Imagens Docker multi-plataforma (amd64, arm64, arm/v7)
 
 ## Começando
 
