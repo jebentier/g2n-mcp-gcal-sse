@@ -15,7 +15,7 @@ const SERVER_VERSION = '0.1.0';
 
 // Definição do esquema de configuração
 const ConfigSchema = z.object({
-  PORT: z.number().default(3001),
+  PORT: z.string().default('3001'),
   HOST: z.string().default('0.0.0.0'),
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
@@ -268,7 +268,7 @@ async function main() {
   });
 
   // Inicia o servidor
-  app.listen(config.PORT, config.HOST, async () => {
+  app.listen(parseInt(config.PORT, 10), config.HOST, async () => {
     console.log(`Servidor em execução em ${baseUrl}`);
     
     // Inicializa o serviço do Calendar
