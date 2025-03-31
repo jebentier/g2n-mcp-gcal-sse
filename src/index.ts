@@ -15,11 +15,10 @@ const SERVER_VERSION = '0.1.0';
 
 // Definição do esquema de configuração
 const ConfigSchema = z.object({
-  PORT: z.string().default('3001'),
+  PORT: z.number().default(3001),
   HOST: z.string().default('0.0.0.0'),
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
-  TOKEN_STORAGE_PATH: z.string().optional(),
   OAUTH_REDIRECT_PATH: z.string().default('/oauth/callback'),
   PUBLIC_URL: z.string().optional(),
 });
@@ -32,7 +31,6 @@ const loadConfig = () => {
       HOST: process.env.HOST,
       GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
       GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-      TOKEN_STORAGE_PATH: process.env.TOKEN_STORAGE_PATH,
       OAUTH_REDIRECT_PATH: process.env.OAUTH_REDIRECT_PATH,
       PUBLIC_URL: process.env.PUBLIC_URL,
     });
@@ -65,7 +63,7 @@ async function main() {
   
   // Cria o gerenciador de tokens
   const tokenManager = new TokenManager({
-    tokenStoragePath: config.TOKEN_STORAGE_PATH || path.join(process.cwd(), 'data', 'tokens.json'),
+    tokenStoragePath: path.join(process.cwd(), 'data', 'tokens.json'),
     tokenRefreshInterval: 30 * 60 * 1000, // 30 minutos
   });
   
@@ -114,29 +112,38 @@ async function main() {
     clientId: config.GOOGLE_CLIENT_ID,
     clientSecret: config.GOOGLE_CLIENT_SECRET,
     redirectUri,
-    scopes: ['https://www.googleapis.com/auth/calendar'],
+    scopes: [
+      'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/calendar.events'
+    ],
   }, tokenManager);
   
   // Inicializa o serviço do Google Calendar
   const calendarService = new GoogleCalendarService(oauthHandler, tokenManager);
   
   // Inicializa o servidor MCP
-  const mcpServer = new McpServer({
-    name: SERVER_NAME,
-    version: SERVER_VERSION,
-  });
+  let mcpServer: McpServer;
   
   // Configura o servidor Express para SSE e OAuth
   const app = express();
-  
-  // Adiciona middleware para parsear JSON
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+
+  // Configuração CORS
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', '*');
+    
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    
+    next();
+  });
   
   // Para suportar múltiplas conexões simultâneas, mantemos um objeto de pesquisa
   // que mapeia sessionId para o transporte correspondente
   const transports: {[sessionId: string]: SSEServerTransport} = {};
-  const activeConnections: {[sessionId: string]: Response} = {}; // Para armazenar as conexões ativas
   
   // Endpoint de saúde
   app.get('/health', async (_: Request, res: Response) => {
@@ -157,47 +164,52 @@ async function main() {
   });
   
   // Endpoint de callback para receber o código de autorização OAuth
-  app.get(String(config.OAUTH_REDIRECT_PATH), (req: Request, res: Response) => {
+  app.get(String(config.OAUTH_REDIRECT_PATH), async (req: Request, res: Response) => {
     const { code } = req.query;
     
     if (!code || typeof code !== 'string') {
       res.status(400).send('Código de autorização ausente ou inválido');
       return;
     }
-    
-    (async () => {
-      try {
-        // Processa o código de autorização
-        await calendarService.handleAuthCode(code);
-        
-        res.send(`
-          <html>
-            <head>
-              <title>Autorização concluída</title>
-              <style>
-                body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-                .success { color: green; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <h1 class="success">Autorização concluída com sucesso!</h1>
-                <p>O servidor MCP do Google Calendar foi autorizado com sucesso.</p>
-                <p>Você pode fechar esta janela agora e voltar para a aplicação.</p>
-              </div>
-            </body>
-          </html>
-        `);
-        
-        // Registra as ferramentas do Google Calendar após autenticação bem-sucedida
+
+    try {
+      // Processa o código de autorização
+      await calendarService.handleAuthCode(code);
+      
+      res.send(`
+        <html>
+          <head>
+            <title>Autorização concluída</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+              .success { color: green; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1 class="success">Autorização concluída com sucesso!</h1>
+              <p>O servidor MCP do Google Calendar foi autorizado com sucesso.</p>
+              <p>Você pode fechar esta janela agora e voltar para a aplicação.</p>
+            </div>
+          </body>
+        </html>
+      `);
+
+      // Inicializa o serviço do Calendar
+      const isInitialized = await calendarService.initialize();
+      if (isInitialized) {
+        console.log('Serviço do Google Calendar inicializado com sucesso');
+        mcpServer = new McpServer({
+          name: SERVER_NAME,
+          version: SERVER_VERSION,
+        });
         registerCalendarTools(mcpServer, calendarService);
-        
-      } catch (error) {
-        console.error('Erro durante autorização OAuth:', error);
-        res.status(500).send(`Erro durante autorização: ${error}`);
       }
-    })();
+    } catch (error) {
+      console.error('Erro durante autorização OAuth:', error);
+      res.status(500).send(`Erro durante autorização: ${error}`);
+    }
   });
   
   // Endpoint para revogar o acesso
@@ -212,167 +224,66 @@ async function main() {
   });
   
   // Endpoint SSE para eventos
-  app.get('/sse', function(req: Request, res: Response) {
-    // Gerar um ID de sessão único
-    const sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
-    
-    // Configuração de cabeçalhos SSE manualmente
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no', // Desativa o buffering para proxies Nginx
-      'Access-Control-Allow-Origin': '*'
-    });
-
-    // Armazenar a conexão
-    activeConnections[sessionId] = res;
-    
-    console.log(`Nova conexão SSE estabelecida: ${sessionId}`);
-    
-    // Enviar evento inicial com o sessionId
-    res.write(`data: ${JSON.stringify({ type: 'connected', sessionId })}\n\n`);
-    
-    // Função para manter a conexão viva
-    const keepAlive = setInterval(() => {
-      if (activeConnections[sessionId]) {
-        try {
-          res.write(': keepalive\n\n');
-        } catch (error) {
-          // Se houver erro ao escrever, a conexão provavelmente já foi fechada
-          clearInterval(keepAlive);
-          delete activeConnections[sessionId];
-          delete transports[sessionId];
-        }
-      } else {
-        clearInterval(keepAlive);
-      }
-    }, 30000); // a cada 30 segundos
-    
-    // Limpar recursos quando a conexão for fechada
-    res.on('close', () => {
-      clearInterval(keepAlive);
-      delete activeConnections[sessionId];
-      delete transports[sessionId];
-      console.log(`Conexão SSE fechada: ${sessionId}`);
-    });
-    
-    // Criar o transporte MCP para este sessionId, mas não envie cabeçalhos pelo transporte
-    // Criar o transporte apenas para o /messages endpoint, não para o SSE diretamente
-    const dummyRes = {
-      write: () => {}, // Função vazia para não interferir na resposta SSE
-      end: () => {},
-      on: () => {}
-    } as unknown as Response;
-    
-    // Este transporte será usado apenas para receber mensagens via /messages
-    const transport = new SSEServerTransport('/messages', dummyRes);
-    transports[sessionId] = transport;
-    
-    // Sobrescrever o método send para redirecionar para nossa conexão SSE
-    transport.send = async (message) => {
-      if (activeConnections[sessionId]) {
-        try {
-          const data = JSON.stringify(message);
-          activeConnections[sessionId].write(`data: ${data}\n\n`);
-        } catch (error) {
-          console.error(`Erro ao enviar mensagem SSE: ${error}`);
-        }
-      }
-    };
-    
-    // Conectar ao servidor MCP
-    (async () => {
+  app.get('/sse', async (_: Request, res: Response) => {
+    try {      
+      const transport = new SSEServerTransport('/messages', res);
+      transports[transport.sessionId] = transport;
+      
+      console.log(`Nova conexão SSE estabelecida: ${transport.sessionId}`);
+      
+      res.on('close', () => {
+        delete transports[transport.sessionId];
+        console.log(`Conexão SSE fechada: ${transport.sessionId}`);
+      });
+      
       try {
-        // Verificar autenticação antes de tentar conectar
-        const isAuthenticated = await calendarService.isAuthenticated();
-        
-        // Conectar o transporte ao servidor MCP
         await mcpServer.connect(transport);
-        
-        if (isAuthenticated) {
-          registerCalendarTools(mcpServer, calendarService);
-          // Informar ao cliente que estamos autenticados
-          if (activeConnections[sessionId]) {
-            activeConnections[sessionId].write(`data: ${JSON.stringify({ type: 'authenticated' })}\n\n`);
-          }
-        } else {
-          // Informar ao cliente que precisamos de autenticação
-          if (activeConnections[sessionId]) {
-            activeConnections[sessionId].write(`data: ${JSON.stringify({ type: 'auth_required', authUrl: `${baseUrl}/auth` })}\n\n`);
-          }
-        }
       } catch (error) {
-        console.error(`Erro ao configurar conexão SSE: ${error}`);
+        console.error(`Erro ao conectar transporte SSE: ${error}`);
       }
-    })();
+    } catch (error) {
+      console.error(`Erro ao inicializar conexão SSE: ${error}`);
+      // Não tente enviar resposta se os cabeçalhos já foram enviados
+      if (!res.headersSent) {
+        res.status(500).send('Erro interno do servidor');
+      }
+    }
   });
   
   // Endpoint para receber mensagens dos clientes
-  app.post('/messages', function(req: Request, res: Response) {
+  app.post('/messages', async (req: Request, res: Response) => {
     const sessionId = req.query.sessionId as string;
-    
-    if (!sessionId) {
-      res.status(400).json({ 
-        error: 'missing_session_id',
-        message: 'É necessário fornecer um sessionId como parâmetro de consulta' 
-      });
-      return;
-    }
-    
     const transport = transports[sessionId];
     
-    if (!transport) {
-      res.status(404).json({ 
-        error: 'session_not_found',
-        message: 'Nenhum transporte encontrado para o sessionId fornecido. A sessão pode ter expirado.' 
-      });
-      return;
-    }
-    
-    // Verificar se a conexão SSE ainda está ativa
-    if (!activeConnections[sessionId]) {
-      res.status(410).json({
-        error: 'connection_closed',
-        message: 'A conexão SSE para esta sessão foi fechada. Reconecte via SSE.'
-      });
-      return;
-    }
-    
-    // Processar a mensagem no transporte
-    (async () => {
+    if (transport) {
       try {
-        // Extrair a mensagem JSON da solicitação
-        const message = req.body;
-        
-        // Simular o processo handlePostMessage diretamente
-        if (transport.onmessage) {
-          await transport.onmessage(message);
-        }
-        
-        // Responder com sucesso
-        res.status(200).json({ success: true });
+        await transport.handlePostMessage(req, res);
       } catch (error) {
-        console.error(`Erro ao processar mensagem para sessão ${sessionId}:`, error);
-        
-        // Só envie resposta se ainda não tivermos respondido
-        if (!res.headersSent) {
-          res.status(500).json({
-            error: 'internal_error',
-            message: 'Erro ao processar mensagem'
-          });
-        }
+          console.error(`Erro ao processar mensagem para sessão ${sessionId}:`, error);
+          res.status(500).send('Erro ao processar mensagem');
       }
-    })();
+    } else {
+      res.status(400).send('Nenhum transporte encontrado para o sessionId fornecido');
+    }
   });
-  
+
   // Inicia o servidor
-  const PORT = parseInt(config.PORT, 10);
-  const HOST = config.HOST;
-  
-  app.listen(PORT, HOST, () => {
+  app.listen(config.PORT, config.HOST, async () => {
     console.log(`Servidor em execução em ${baseUrl}`);
-    console.log(`Para autorizar o aplicativo, visite ${baseUrl}/auth`);
+    
+    // Inicializa o serviço do Calendar
+    const isInitialized = await calendarService.initialize();
+    if (isInitialized) {
+      console.log('Serviço do Google Calendar inicializado com sucesso');
+      mcpServer = new McpServer({
+        name: SERVER_NAME,
+        version: SERVER_VERSION,
+      });
+      registerCalendarTools(mcpServer, calendarService);
+    } else {
+      console.log('Serviço do Google Calendar requer autenticação');
+      console.log(`Para autorizar o aplicativo, visite ${baseUrl}/auth`);
+    }
   });
 }
 
