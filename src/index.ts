@@ -55,7 +55,6 @@ async function main() {
   
   // Exibir configurações importantes para debug
   console.log(`Configuração atual:
-    HOST: ${config.HOST}
     PORT: ${config.PORT}
     PUBLIC_URL: ${config.PUBLIC_URL || 'não definido'}
     OAUTH_REDIRECT_PATH: ${config.OAUTH_REDIRECT_PATH}
@@ -105,7 +104,6 @@ async function main() {
     : `/${config.OAUTH_REDIRECT_PATH}`;
   
   const redirectUri = `${baseUrl}${redirectPath}`;
-  console.log(`URL de redirecionamento OAuth: ${redirectUri}`);
   
   // Cria o manipulador OAuth
   const oauthHandler = new OAuthHandler({
@@ -126,6 +124,23 @@ async function main() {
   
   // Configura o servidor Express para SSE e OAuth
   const app = express();
+
+  // Middleware para verificar se o servidor MCP está inicializado
+  const checkMcpServerInitialized = (req: Request, res: Response, next: Function) => {
+    if (!mcpServer) {
+      res.status(401).json({
+        error: {
+          code: -32001,
+          message: "Servidor MCP não inicializado. Por favor, autentique-se em /auth primeiro.",
+          data: {
+            authUrl: `${baseUrl}/auth`
+          }
+        }
+      });
+      return;
+    }
+    next();
+  };
 
   // Configuração CORS
   app.use((req, res, next) => {
@@ -224,7 +239,7 @@ async function main() {
   });
   
   // Endpoint SSE para eventos
-  app.get('/sse', async (_: Request, res: Response) => {
+  app.get('/sse', checkMcpServerInitialized, async (_: Request, res: Response) => {
     try {      
       const transport = new SSEServerTransport('/messages', res);
       transports[transport.sessionId] = transport;
@@ -251,7 +266,7 @@ async function main() {
   });
   
   // Endpoint para receber mensagens dos clientes
-  app.post('/messages', async (req: Request, res: Response) => {
+  app.post('/messages', checkMcpServerInitialized, async (req: Request, res: Response) => {
     const sessionId = req.query.sessionId as string;
     const transport = transports[sessionId];
     
@@ -269,8 +284,6 @@ async function main() {
 
   // Inicia o servidor
   app.listen(parseInt(config.PORT, 10), config.HOST, async () => {
-    console.log(`Servidor em execução em ${baseUrl}`);
-    
     // Inicializa o serviço do Calendar
     const isInitialized = await calendarService.initialize();
     if (isInitialized) {
