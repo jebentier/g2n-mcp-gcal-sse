@@ -32,15 +32,6 @@ O servidor fornece as seguintes ferramentas MCP para gerenciamento do Google Cal
 - **Gerenciamento de recursos aprimorado**: Configurações otimizadas de memória e CPU
 - **Correção de versão**: Correção da numeração de versão em todos os arquivos do projeto
 
-## Arquitetura
-
-O projeto segue uma abordagem de arquitetura limpa com:
-
-- **Tipagem forte**: Definições de tipo consistentes usando esquemas Zod e TypeScript
-- **Design modular**: Separação de preocupações entre autenticação, serviços e ferramentas
-- **Suporte Docker**: Implantação de contêiner multi-plataforma para facilidade de uso
-- **Pronto para Swarm**: Configuração otimizada para implantações Docker Swarm
-
 ## Começando
 
 ### Pré-requisitos
@@ -49,115 +40,22 @@ O projeto segue uma abordagem de arquitetura limpa com:
 - Projeto do Google Cloud com API Calendar ativada
 - ID do Cliente OAuth 2.0 e Secret do Cliente
 
-### Início Rápido com Docker
+### Variáveis de Ambiente
 
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/gabriel-g2n/g2n-mcp-gcal-sse.git
-   cd g2n-mcp-gcal-sse
-   ```
+O servidor utiliza as seguintes variáveis de ambiente:
 
-2. Crie um arquivo `.env` baseado no `.env.example`:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Edite o arquivo `.env` e preencha suas credenciais da API do Google:
-   ```
-   GOOGLE_CLIENT_ID=seu-client-id
-   GOOGLE_CLIENT_SECRET=seu-client-secret
-   ```
-
-4. Execute o contêiner Docker:
-   ```bash
-   docker-compose up -d
-   ```
-
-5. Navegue até a URL de autenticação para autorizar a aplicação:
-   ```
-   http://localhost:3001/auth
-   ```
-   
-6. Siga o fluxo OAuth em seu navegador para conceder acesso ao seu Google Calendar.
-
-7. Uma vez que a autorização esteja completa, o servidor estará disponível em http://localhost:3001
-
-### Implantação Docker Swarm
-
-Para implantação em produção com Docker Swarm:
-
-```bash
-# Inicialize o swarm se ainda não estiver feito
-docker swarm init
-
-# Crie secrets do Docker para informações sensíveis (recomendado)
-echo "seu-client-id" | docker secret create google_client_id -
-echo "seu-client-secret" | docker secret create google_client_secret -
-
-# Implante o stack
-docker stack deploy -c docker-compose.yml g2n-mcp-gcal
+```env
+PORT=3001                                # Porta do servidor (padrão: 3001)
+PUBLIC_URL=https://seu-dominio.com       # URL pública para callbacks OAuth
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}     # ID do Cliente OAuth do Google
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET} # Secret do Cliente OAuth do Google
+OAUTH_REDIRECT_PATH=/oauth/callback      # Caminho do callback OAuth (padrão: /oauth/callback)
 ```
 
-Para uma configuração mais segura com Docker Swarm, descomente e use os exemplos no arquivo `docker-compose.yml` para usar secrets em vez de variáveis de ambiente.
-
-Após a implantação, navegue até `http://seu-servidor:3001/auth` para completar o fluxo de autorização OAuth.
-
-### Implantação Docker Swarm com Traefik
-
-Ao implantar em um ambiente Docker Swarm com Traefik, siga estes passos para garantir a configuração adequada:
-
-1. Defina a variável de ambiente `PUBLIC_URL` para corresponder ao seu domínio:
-
-```bash
-# Crie um arquivo .env para sua implantação
-cat > .env << EOF
-GOOGLE_CLIENT_ID=seu-client-id
-GOOGLE_CLIENT_SECRET=seu-client-secret
-PUBLIC_URL=https://mcp-gcal.seudominio.com
-TRAEFIK_HOST=mcp-gcal.seudominio.com
-EOF
-```
-
-2. Implante o stack com as variáveis de ambiente:
-
-```bash
-docker stack deploy -c docker-compose.yml g2n-mcp-gcal --with-registry-auth
-```
-
-3. Notas importantes para uso com Traefik:
-   - A variável `PUBLIC_URL` é **crucial** para que os callbacks OAuth funcionem
-   - Ela **deve** incluir o protocolo (http:// ou https://) e corresponder à URL pública onde seu serviço está acessível
-   - Exemplo: `PUBLIC_URL=https://mcp-gcal.seudominio.com`
-   - Esta URL será usada para redirecionamentos do OAuth do Google
-   - Os labels do Traefik estão pré-configurados no arquivo docker-compose.yml
-   - Para HTTPS, descomente os labels Traefik seguros no docker-compose.yml
-
-4. Se estiver usando o Portainer para gerenciar seu Swarm:
-   - Na interface de implantação de stack do Portainer, adicione as variáveis de ambiente:
-     - `PUBLIC_URL`: https://mcp-gcal.seudominio.com
-     - `TRAEFIK_HOST`: mcp-gcal.seudominio.com
-   - Implante seu stack normalmente através da interface do Portainer
-
-## Suporte Multi-plataforma
-
-A imagem Docker é construída para múltiplas plataformas, incluindo:
-- linux/amd64 (Processadores Intel/AMD)
-- linux/arm64 (Processadores ARM64 como Raspberry Pi 4, Apple Silicon M1/M2/M3)
-- linux/arm/v7 (Processadores ARMv7 como Raspberry Pi 3)
-
-Para construir uma imagem multi-arquitetura usando nosso script fornecido:
-
-```bash
-npm run docker:build-multi
-```
-
-Ou manualmente:
-
-```bash
-docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
-  -t gabrielg2n/g2n-mcp-gcal-sse:0.1.2 \
-  --push .
-```
+**Notas Importantes:**
+- Ao usar o Traefik, certifique-se de configurá-lo para apontar para a porta especificada na variável de ambiente `PORT`
+- Isso é crucial para receber o refresh token do Google com sucesso
+- A `PUBLIC_URL` deve ser acessível pela internet para que os callbacks OAuth funcionem
 
 ## Fluxo de Autenticação
 
@@ -169,17 +67,43 @@ docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
 
 Para revogar o acesso, use o endpoint `/revoke`:
 ```bash
-curl -X POST http://localhost:3001/revoke
+curl -X POST https://seu-dominio.com/revoke
 ```
 
 ## Uso com Aplicações Compatíveis com MCP
+
+### URLs de Conexão
+
+Dependendo do seu cenário de implantação, use o formato de URL apropriado:
+
+1. **Docker Swarm / acesso interno n8n:**
+   ```
+   http://[nome-do-servico-na-stack]:3001/sse
+   ```
+   Exemplo: Se seu serviço se chama `g2n-mcp-gcal-sse` na stack, use:
+   ```
+   http://g2n-mcp-gcal-sse:3001/sse
+   ```
+
+2. **Acesso externo (Cursor, Claude, etc.):**
+   ```
+   https://seu-dominio.com/sse
+   ```
+
+3. **Desenvolvimento local:**
+   ```
+   http://localhost:3001/sse
+   ```
 
 ### Cursor AI
 
 Você pode usar este servidor com o Cursor AI configurando a conexão MCP nas suas configurações:
 
 1. Abra as configurações do Cursor
-2. Configure a URL do servidor MCP: `http://localhost:3001/sse`
+2. Configure a URL do servidor MCP usando seu domínio público:
+   ```
+   https://seu-dominio.com/sse
+   ```
 3. Comece a usar os recursos do Google Calendar através de comandos AI
 
 ### Claude Desktop
@@ -187,82 +111,20 @@ Você pode usar este servidor com o Cursor AI configurando a conexão MCP nas su
 Para o Claude Desktop:
 
 1. Navegue até Configurações > MCP
-2. Adicione uma nova conexão MCP com a URL: `http://localhost:3001/sse`
+2. Adicione uma nova conexão MCP com sua URL pública:
+   ```
+   https://seu-dominio.com/sse
+   ```
 3. Acesse a funcionalidade do Google Calendar através de suas conversas
 
 ### n8n
 
 1. No n8n, adicione um novo nó MCP
-2. Configure o nó MCP com a URL do endpoint SSE: `http://localhost:3001/sse`
+2. Configure o nó MCP com a URL do serviço interno:
+   ```
+   http://[nome-do-servico-na-stack]:3001/sse
+   ```
 3. Use as ferramentas de calendário expostas em seus workflows
-
-## Desenvolvimento
-
-Para configurar um ambiente de desenvolvimento:
-
-1. Instale as dependências:
-   ```bash
-   npm install
-   ```
-
-2. Inicie o servidor de desenvolvimento:
-   ```bash
-   npm run dev
-   ```
-
-3. Navegue até a URL de autorização:
-   ```
-   http://localhost:3001/auth
-   ```
-
-4. Construa o projeto:
-   ```bash
-   npm run build
-   ```
-
-5. Construa a imagem Docker:
-   ```bash
-   npm run docker:build
-   ```
-
-6. Envie a imagem Docker:
-   ```bash
-   npm run docker:push
-   ```
-
-## Estrutura do Projeto
-
-```
-src/
-├── auth/              # Autenticação e gerenciamento de tokens
-├── services/          # Implementações de serviços principais
-├── tools/             # Definições de ferramentas MCP
-├── types/             # Definições de tipos com esquemas Zod
-└── index.ts           # Ponto de entrada da aplicação
-```
-
-## CI/CD com GitHub Actions
-
-O projeto inclui um workflow do GitHub Actions que:
-
-1. Constrói a imagem Docker para múltiplas plataformas
-2. Envia a imagem para o Docker Hub
-3. Cria tags apropriadas baseadas em tags git (para releases) e commits
-
-Para criar uma nova release:
-
-```bash
-git tag v0.1.2
-git push origin v0.1.2
-```
-
-Isso acionará o workflow para construir e publicar a release marcada.
-
-## Persistência e Gerenciamento de Dados
-
-O servidor armazena tokens em um volume montado em `/app/data`. Isso garante que sua autenticação persista entre reinicializações do contêiner.
-
-Para implantações no Docker Swarm, considere usar um volume compartilhado ou uma solução de armazenamento em rede para garantir a persistência dos tokens em todos os nós do swarm.
 
 ## Licença
 

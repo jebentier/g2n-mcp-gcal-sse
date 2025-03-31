@@ -1,85 +1,30 @@
 version: '3.8'
 
 services:
-  mcp-gcal-sse:
-    image: gabrielg2n/g2n-mcp-gcal-sse:0.1.2
-    container_name: g2n-mcp-gcal-sse
+  g2n-mcp-gcal-ssee:
+    image: gabrielg2n/g2n-mcp-gcal-sse:latest
     environment:
-      - PORT=3001
-      - HOST=0.0.0.0
-      - PUBLIC_URL=${PUBLIC_URL:-http://localhost:3001}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - TOKEN_STORAGE_PATH=/app/data/tokens.json
-    ports:
-      - "3001:3001"
+      PORT: 3001
+      PUBLIC_URL: https://[seu-dominio.com]
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      OAUTH_REDIRECT_PATH: /oauth/callback
     volumes:
       - gcal_tokens:/app/data
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://0.0.0.0:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
+    networks:
+      - cf-tunnel-network
+      - app_network
     deploy:
-      mode: replicated
       replicas: 1
       restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-      update_config:
-        parallelism: 1
-        delay: 10s
-        order: start-first
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 256M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
-      labels:
-        # Configurações do Traefik
-        - "traefik.enable=true"
-        - "traefik.http.routers.mcp-gcal-sse.rule=Host(`${TRAEFIK_HOST:-mcp-gcal.localhost}`)"
-        - "traefik.http.services.mcp-gcal-sse.loadbalancer.server.port=3001"
-        - "traefik.http.routers.mcp-gcal-sse.entrypoints=web"
-        # Opcional: habilitar HTTPS
-        # - "traefik.http.routers.mcp-gcal-sse-secure.rule=Host(`${TRAEFIK_HOST:-mcp-gcal.localhost}`)"
-        # - "traefik.http.routers.mcp-gcal-sse-secure.entrypoints=websecure"
-        # - "traefik.http.routers.mcp-gcal-sse-secure.tls=true"
-    networks:
-      - default
+        condition: any
 
 volumes:
   gcal_tokens:
-    driver: local
+    external: true
 
 networks:
-  default:
-    driver: overlay
-    attachable: true
-
-# Configurações para Docker Swarm em produção
-# Descomente e ajuste conforme necessário
-#
-# secrets:
-#   google_client_id:
-#     external: true
-#   google_client_secret:
-#     external: true
-#
-# Exemplo de uso com secrets:
-# services:
-#   mcp-gcal-sse:
-#     environment:
-#       - PORT=3001
-#       - HOST=0.0.0.0
-#       - PUBLIC_URL=${PUBLIC_URL}
-#       - TOKEN_STORAGE_PATH=/app/data/tokens.json
-#     secrets:
-#       - source: google_client_id
-#         target: GOOGLE_CLIENT_ID
-#       - source: google_client_secret
-#         target: GOOGLE_CLIENT_SECRET 
+  cf-tunnel-network:
+    external: true
+  app_network:
+    external: true
