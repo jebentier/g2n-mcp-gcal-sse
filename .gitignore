@@ -9,6 +9,7 @@ yarn-error.log
 build/
 dist/
 *.tsbuildinfo
+data/
 
 # Ambiente
 .env
