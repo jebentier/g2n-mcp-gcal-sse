@@ -16,6 +16,7 @@ export class Server {
   private mcpServer: McpServer | undefined;
   private calendarService: GoogleCalendarService;
   private transports: { [sessionId: string]: SSEServerTransport } = {};
+  private heartbeatIntervals: { [sessionId: string]: NodeJS.Timeout } = {};
   private readonly serverName: string;
   private readonly serverVersion: string;
   private logger: ILogger;
@@ -67,7 +68,8 @@ export class Server {
       this.transports,
       this.serverName,
       this.serverVersion,
-      this.logger
+      this.logger,
+      this.heartbeatIntervals
     ));
     
     this.logger.debug('[INIT] Servidor configurado com sucesso');

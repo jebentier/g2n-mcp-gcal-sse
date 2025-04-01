@@ -13,7 +13,8 @@ export const createRouter = (
   transports: { [sessionId: string]: SSEServerTransport },
   serverName: string,
   serverVersion: string,
-  logger: ILogger
+  logger: ILogger,
+  heartbeatIntervals: { [sessionId: string]: NodeJS.Timeout }
 ) => {
   const router = Router();
 
@@ -90,6 +91,23 @@ export const createRouter = (
       
       res.on('close', () => {
         logger.debug(`[ROUTES] SSE conexão fechada | SessionID: ${transportId}`);
+
+        // Limpar o heartbeat
+        if (heartbeatIntervals[transportId]) {
+          clearInterval(heartbeatIntervals[transportId]);
+          delete heartbeatIntervals[transportId];
+          logger.debug(`[ROUTES] SSE heartbeat interrompido | SessionID: ${transportId}`);
+        }
+
+        delete transports[transportId];
+      });
+
+      res.on('error', (err) => {
+        logger.error(`[ROUTES] SSE erro na conexão | SessionID: ${transportId}:`, err);
+        if (heartbeatIntervals[transportId]) {
+          clearInterval(heartbeatIntervals[transportId]);
+          delete heartbeatIntervals[transportId];
+        }
         delete transports[transportId];
       });
       
@@ -98,6 +116,24 @@ export const createRouter = (
         await mcpServer.connect(transport);
         logger.debug(`[ROUTES] MCP conectado ao transporte | SessionID: ${transportId}`);
       }
+
+      // Configurar heartbeat a cada 10 segundos para manter a conexão viva
+      heartbeatIntervals[transportId] = setInterval(() => {
+        try {
+          if (res.writable) {
+            res.write(`: heartbeat ${Date.now()}\n\n`);
+            logger.debug(`[ROUTES] SSE heartbeat enviado | SessionID: ${transportId}`);
+          } else {
+            clearInterval(heartbeatIntervals[transportId]);
+            delete heartbeatIntervals[transportId];
+            logger.debug(`[ROUTES] SSE conexão não está mais gravável, heartbeat interrompido | SessionID: ${transportId}`);
+          }
+        } catch (err) {
+          logger.error(`[ROUTES] Erro ao enviar SSE heartbeat | SessionID: ${transportId}:`, err);
+          clearInterval(heartbeatIntervals[transportId]);
+          delete heartbeatIntervals[transportId];
+        }
+      }, 10000); // 10 segundos
     } catch (error) {
       logger.error('[ROUTES] Erro na conexão SSE:', error);
       res.status(500).end();
