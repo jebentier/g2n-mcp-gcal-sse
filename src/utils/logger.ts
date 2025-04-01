@@ -38,10 +38,26 @@ const parseLogLevels = (logLevelStr: string): string[] => {
 };
 
 // Obtém o nível de log base da configuração
-const getBaseLevel = (): string => {
-  // Usa 'silly' como base para permitir todos os níveis possíveis
-  // O controle real será feito pela função isLevelEnabled
-  return 'silly';
+const getBaseLevel = (logLevelStr: string): string => {
+  const configLevels = parseLogLevels(logLevelStr);
+  
+  // Se DEBUG está na lista, inclui todos os níveis abaixo dele
+  if (configLevels.includes('debug')) {
+    return 'debug';
+  }
+  
+  // Se verbose está na lista, inclui todos os níveis abaixo dele
+  if (configLevels.includes('verbose')) {
+    return 'verbose';
+  }
+  
+  // Se http está na lista, inclui todos os níveis abaixo dele
+  if (configLevels.includes('http')) {
+    return 'http';
+  }
+  
+  // Usa 'info' como base padrão
+  return 'info';
 };
 
 // Função para criar um logger com configuração específica
@@ -53,6 +69,16 @@ export function createLoggerWithConfig(config: Config) {
     if (!configLevels?.length) {
       // Se não há níveis definidos, usa os níveis padrão
       return ['error', 'warn', 'info'].includes(level);
+    }
+    
+    // Se DEBUG está ativado, habilita também debug, verbose, http, info, warn e error
+    if (configLevels.includes('debug')) {
+      return ['error', 'warn', 'info', 'http', 'verbose', 'debug'].includes(level);
+    }
+    
+    // Se VERBOSE está ativado, habilita também verbose, http, info, warn e error
+    if (configLevels.includes('verbose')) {
+      return ['error', 'warn', 'info', 'http', 'verbose'].includes(level);
     }
 
     return configLevels.includes(level);
@@ -90,7 +116,7 @@ export function createLoggerWithConfig(config: Config) {
 
   // Cria o logger
   const logger = createLogger({
-    level: getBaseLevel(), // Usa o primeiro nível como nível base
+    level: getBaseLevel(config.LOG_LEVEL || ''), // Determina o nível base
     levels,
     format: combine(
       errors({ stack: true }), // Captura stack traces
@@ -225,6 +251,11 @@ export function createLoggerWithConfig(config: Config) {
 
   // Log inicial com informações do logger
   logger.info(`Logger iniciado (níveis ativos: ${effectiveLevels})`);
+  
+  // Verifica se debug está ativo e faz um log inicial de teste
+  if (isLevelEnabled('debug')) {
+    logger.debug('Debug logging está ativo');
+  }
 
   return winstonLogger;
 }
@@ -257,7 +288,7 @@ const defaultLogger = createLoggerWithConfig({
   GOOGLE_CLIENT_ID: '',
   GOOGLE_CLIENT_SECRET: '',
   OAUTH_REDIRECT_PATH: '/oauth/callback',
-  LOG_LEVEL: 'error,warn,info'
+  LOG_LEVEL: 'error,warn,info,debug'
 });
 
 export default defaultLogger; 
