@@ -243,20 +243,6 @@ export function createLoggerWithConfig(config: Config) {
     isLevelEnabled
   };
 
-  // Níveis efetivamente ativos
-  const activeLogLevels = parseLogLevels(config.LOG_LEVEL || '');
-  const effectiveLevels = activeLogLevels.length > 0 
-    ? activeLogLevels.join(', ') 
-    : 'error, warn, info (padrão)';
-
-  // Log inicial com informações do logger
-  logger.info(`Logger iniciado (níveis ativos: ${effectiveLevels})`);
-  
-  // Verifica se debug está ativo e faz um log inicial de teste
-  if (isLevelEnabled('debug')) {
-    logger.debug('Debug logging está ativo');
-  }
-
   return winstonLogger;
 }
 
