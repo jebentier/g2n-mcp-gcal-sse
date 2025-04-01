@@ -1,6 +1,7 @@
 import { calendar_v3, google } from 'googleapis';
 import { OAuthHandler } from '../auth/oauthHandler.js';
 import { TokenManager } from '../auth/tokenManager.js';
+import { ILogger } from '../utils/logger.js';
 import { 
   ListEventsParams, 
   GetCalendarParams,
@@ -15,10 +16,12 @@ export class GoogleCalendarService {
   private calendar: calendar_v3.Calendar;
   private oauthHandler: OAuthHandler;
   private tokenManager: TokenManager;
+  private logger: ILogger;
 
-  constructor(oauthHandler: OAuthHandler, tokenManager: TokenManager) {
+  constructor(oauthHandler: OAuthHandler, tokenManager: TokenManager, logger: ILogger) {
     this.oauthHandler = oauthHandler;
     this.tokenManager = tokenManager;
+    this.logger = logger;
     
     // Inicialmente, cria o cliente do Calendar com o cliente OAuth
     this.calendar = google.calendar({
@@ -48,7 +51,8 @@ export class GoogleCalendarService {
       
       return false;
     } catch (error) {
-      console.error('Erro ao inicializar serviço do Calendar:', error);
+      this.logger.error('Erro ao inicializar serviço do Calendar:');
+      this.logger.error(error);
       return false;
     }
   }
@@ -69,7 +73,8 @@ export class GoogleCalendarService {
       
       return false;
     } catch (error) {
-      console.error('Erro ao verificar autenticação:', error);
+      this.logger.error('Erro ao verificar autenticação:');
+      this.logger.error(error);
       return false;
     }
   }
@@ -88,7 +93,8 @@ export class GoogleCalendarService {
       });
       
     } catch (error) {
-      console.error('Erro ao atualizar token de acesso:', error);
+      this.logger.error('Erro ao atualizar token de acesso:');
+      this.logger.error(error);
       throw error;
     }
   }
@@ -121,6 +127,8 @@ export class GoogleCalendarService {
       const response = await this.calendar.calendarList.list();
       return response.data;
     } catch (error) {
+      this.logger.error('Erro ao listar calendários:');
+      this.logger.error(error);
       throw new Error(`Erro ao listar calendários: ${error}`);
     }
   }
@@ -132,6 +140,8 @@ export class GoogleCalendarService {
       });
       return response.data;
     } catch (error) {
+      this.logger.error(`Erro ao obter calendário ${calendarId}:`);
+      this.logger.error(error);
       throw new Error(`Erro ao obter calendário ${calendarId}: ${error}`);
     }
   }
@@ -150,6 +160,8 @@ export class GoogleCalendarService {
       });
       return response.data;
     } catch (error) {
+      this.logger.error(`Erro ao listar eventos do calendário ${params.calendarId}:`);
+      this.logger.error(error);
       throw new Error(`Erro ao listar eventos do calendário ${params.calendarId}: ${error}`);
     }
   }
@@ -165,6 +177,8 @@ export class GoogleCalendarService {
       });
       return response.data;
     } catch (error) {
+      this.logger.error(`Erro ao obter evento ${eventId}:`);
+      this.logger.error(error);
       throw new Error(`Erro ao obter evento ${eventId}: ${error}`);
     }
   }
@@ -180,6 +194,8 @@ export class GoogleCalendarService {
       });
       return response.data;
     } catch (error) {
+      this.logger.error('Erro ao criar evento:');
+      this.logger.error(error);
       throw new Error(`Erro ao criar evento: ${error}`);
     }
   }
@@ -197,6 +213,8 @@ export class GoogleCalendarService {
       });
       return response.data;
     } catch (error) {
+      this.logger.error(`Erro ao atualizar evento ${eventId}:`);
+      this.logger.error(error);
       throw new Error(`Erro ao atualizar evento ${eventId}: ${error}`);
     }
   }
@@ -214,6 +232,8 @@ export class GoogleCalendarService {
       });
       return { success: true, message: `Evento ${eventId} excluído com sucesso` };
     } catch (error) {
+      this.logger.error(`Erro ao excluir evento ${eventId}:`);
+      this.logger.error(error);
       throw new Error(`Erro ao excluir evento ${eventId}: ${error}`);
     }
   }
@@ -224,6 +244,8 @@ export class GoogleCalendarService {
       const response = await this.calendar.colors.get();
       return response.data;
     } catch (error) {
+      this.logger.error('Erro ao listar cores disponíveis:');
+      this.logger.error(error);
       throw new Error(`Erro ao listar cores disponíveis: ${error}`);
     }
   }

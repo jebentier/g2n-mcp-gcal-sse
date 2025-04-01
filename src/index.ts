@@ -16,7 +16,7 @@ async function main() {
   logger.info(`Iniciando ${SERVER_NAME} v${SERVER_VERSION}`);
   
   // Criar e iniciar o servidor
-  const server = new Server(config, SERVER_NAME, SERVER_VERSION);
+  const server = new Server(config, SERVER_NAME, SERVER_VERSION, logger);
   await server.start(config.PORT, config.HOST);
 }
 

@@ -5,13 +5,15 @@ import { GoogleCalendarService } from '../services/googleCalendar.js';
 import { checkMcpServerInitialized } from '../middleware/index.js';
 import { successTemplate, errorTemplate } from '../views/templates.js';
 import { Server } from '../server/server.js';
+import { ILogger } from '../utils/logger.js';
 
 export const createRouter = (
   server: Server,
   calendarService: GoogleCalendarService,
   transports: { [sessionId: string]: SSEServerTransport },
   serverName: string,
-  serverVersion: string
+  serverVersion: string,
+  logger: ILogger
 ) => {
   const router = Router();
 
@@ -49,18 +51,19 @@ export const createRouter = (
       // Inicializa o serviço do Calendar
       const isInitialized = await calendarService.initialize();
       if (isInitialized) {
-        console.log('Serviço do Google Calendar inicializado com sucesso');
+        logger.info('Serviço do Google Calendar inicializado com sucesso');
         
         // Inicializa o servidor MCP
         await server.initializeMcpServer();
-        console.log('Servidor MCP inicializado com sucesso');
+        logger.info('Servidor MCP inicializado com sucesso');
         
         res.send(successTemplate);
       } else {
         res.status(500).send(errorTemplate('Falha ao inicializar o serviço do Google Calendar'));
       }
     } catch (error) {
-      console.error('Erro durante autorização OAuth:', error);
+      logger.error('Erro durante autorização OAuth:');
+      logger.error(error);
       res.status(500).send(errorTemplate(`Erro durante autorização: ${error}`));
     }
   });
@@ -71,7 +74,8 @@ export const createRouter = (
       await calendarService.revokeAccess();
       res.status(200).json({ success: true, message: 'Acesso revogado com sucesso' });
     } catch (error) {
-      console.error('Erro ao revogar acesso:', error);
+      logger.error('Erro ao revogar acesso:');
+      logger.error(error);
       res.status(500).json({ success: false, message: `Erro ao revogar acesso: ${error}` });
     }
   });
@@ -91,7 +95,8 @@ export const createRouter = (
         await mcpServer.connect(transport);
       }
     } catch (error) {
-      console.error('Erro ao estabelecer conexão SSE:', error);
+      logger.error('Erro ao estabelecer conexão SSE:');
+      logger.error(error);
       res.status(500).end();
     }
   });

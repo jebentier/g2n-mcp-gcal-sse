@@ -1,6 +1,7 @@
 import { OAuth2Client } from 'google-auth-library';
 import { google } from 'googleapis';
 import { TokenManager } from './tokenManager.js';
+import { ILogger } from '../utils/logger.js';
 
 export interface OAuthConfig {
   clientId: string;
@@ -13,10 +14,12 @@ export class OAuthHandler {
   private client: OAuth2Client;
   private config: OAuthConfig;
   private tokenManager: TokenManager;
+  private logger: ILogger;
 
-  constructor(config: OAuthConfig, tokenManager: TokenManager) {
+  constructor(config: OAuthConfig, tokenManager: TokenManager, logger: ILogger) {
     this.config = config;
     this.tokenManager = tokenManager;
+    this.logger = logger;
 
     this.client = new google.auth.OAuth2(
       this.config.clientId,
@@ -54,7 +57,8 @@ export class OAuthHandler {
       
       return;
     } catch (error) {
-      console.error('Erro ao trocar código por tokens:', error);
+      this.logger.error('Erro ao trocar código por tokens:');
+      this.logger.error(error);
       throw error;
     }
   }
@@ -74,7 +78,8 @@ export class OAuthHandler {
       this.client.setCredentials(tokens);
       return this.client;
     } catch (error) {
-      console.error('Erro ao configurar cliente com tokens:', error);
+      this.logger.error('Erro ao configurar cliente com tokens:');
+      this.logger.error(error);
       throw error;
     }
   }
@@ -92,7 +97,8 @@ export class OAuthHandler {
       
       await this.tokenManager.clearTokens();
     } catch (error) {
-      console.error('Erro ao revogar tokens:', error);
+      this.logger.error('Erro ao revogar tokens:');
+      this.logger.error(error);
       throw error;
     }
   }
