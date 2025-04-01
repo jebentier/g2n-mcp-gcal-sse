@@ -51,19 +51,18 @@ export const createRouter = (
       // Inicializa o serviço do Calendar
       const isInitialized = await calendarService.initialize();
       if (isInitialized) {
-        logger.info('Serviço do Google Calendar inicializado com sucesso');
+        logger.info('[ROUTES] Google Calendar inicializado com sucesso');
         
         // Inicializa o servidor MCP
         await server.initializeMcpServer();
-        logger.info('Servidor MCP inicializado com sucesso');
+        logger.info('[ROUTES] Servidor MCP inicializado com sucesso');
         
         res.send(successTemplate);
       } else {
         res.status(500).send(errorTemplate('Falha ao inicializar o serviço do Google Calendar'));
       }
     } catch (error) {
-      logger.error('Erro durante autorização OAuth:');
-      logger.error(error);
+      logger.error('[ROUTES] Erro durante autorização OAuth:', error);
       res.status(500).send(errorTemplate(`Erro durante autorização: ${error}`));
     }
   });
@@ -74,8 +73,7 @@ export const createRouter = (
       await calendarService.revokeAccess();
       res.status(200).json({ success: true, message: 'Acesso revogado com sucesso' });
     } catch (error) {
-      logger.error('Erro ao revogar acesso:');
-      logger.error(error);
+      logger.error('[ROUTES] Erro ao revogar acesso:', error);
       res.status(500).json({ success: false, message: `Erro ao revogar acesso: ${error}` });
     }
   });
@@ -95,8 +93,7 @@ export const createRouter = (
         await mcpServer.connect(transport);
       }
     } catch (error) {
-      logger.error('Erro ao estabelecer conexão SSE:');
-      logger.error(error);
+      logger.error('[ROUTES] Erro na conexão SSE:', error);
       res.status(500).end();
     }
   });

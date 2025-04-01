@@ -41,8 +41,7 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error('Erro ao listar calendários:');
-        logger.error(error);
+        logger.error('[TOOLS] Erro ao listar calendários:', error);
         return {
           content: [
             {
@@ -73,8 +72,7 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error(`Erro ao obter calendário ${params.calendarId}:`);
-        logger.error(error);
+        logger.error(`[TOOLS] Erro ao obter calendário ${params.calendarId}:`, error);
         return {
           content: [
             {
@@ -105,8 +103,7 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error(`Erro ao listar eventos do calendário ${params.calendarId}:`);
-        logger.error(error);
+        logger.error(`[TOOLS] Erro ao listar eventos do calendário ${params.calendarId}:`, error);
         return {
           content: [
             {
@@ -137,8 +134,7 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error(`Erro ao obter evento ${params.eventId}:`);
-        logger.error(error);
+        logger.error(`[TOOLS] Erro ao obter evento ${params.eventId}:`, error);
         return {
           content: [
             {
@@ -172,8 +168,7 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error('Erro ao criar evento:');
-        logger.error(error);
+        logger.error('[TOOLS] Erro ao criar evento:', error);
         return {
           content: [
             {
@@ -206,8 +201,7 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error(`Erro ao atualizar evento ${params.eventId}:`);
-        logger.error(error);
+        logger.error(`[TOOLS] Erro ao atualizar evento ${params.eventId}:`, error);
         return {
           content: [
             {
@@ -228,22 +222,19 @@ export function registerCalendarTools(
     DeleteEventSchema.shape,
     async (params: DeleteEventParams) => {
       try {
-        const result = await calendarService.deleteEvent(
-          params.calendarId, 
-          params.eventId, 
-          params.sendUpdates
-        );
+        const { calendarId, eventId, sendUpdates } = params;
+        
+        await calendarService.deleteEvent(calendarId, eventId, sendUpdates);
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(result, null, 2)
+              text: `Evento ${eventId} excluído com sucesso`
             }
           ]
         };
       } catch (error) {
-        logger.error(`Erro ao excluir evento ${params.eventId}:`);
-        logger.error(error);
+        logger.error(`[TOOLS] Erro ao excluir evento ${params.eventId}:`, error);
         return {
           content: [
             {
@@ -273,8 +264,7 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error('Erro ao listar cores disponíveis:');
-        logger.error(error);
+        logger.error('[TOOLS] Erro ao listar cores disponíveis:', error);
         return {
           content: [
             {

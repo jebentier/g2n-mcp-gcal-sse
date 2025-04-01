@@ -21,9 +21,7 @@ export class OAuthHandler {
     this.tokenManager = tokenManager;
     this.logger = logger;
 
-    this.logger.debug('Inicializando OAuthHandler');
-    this.logger.debug(`URL de redirecionamento configurada: ${config.redirectUri}`);
-    this.logger.debug(`Escopos configurados: ${config.scopes.join(', ')}`);
+    this.logger.debug(`[OAUTH] Inicializando | Callback URI: ${config.redirectUri} | Escopos: ${config.scopes.join(', ')}`);
 
     this.client = new google.auth.OAuth2(
       this.config.clientId,
@@ -31,14 +29,14 @@ export class OAuthHandler {
       this.config.redirectUri
     );
     
-    this.logger.debug('Cliente OAuth2 criado com sucesso');
+    this.logger.debug('[OAUTH] Cliente criado com sucesso');
   }
 
   /**
    * Gera a URL de autorização para iniciar o fluxo OAuth
    */
   public generateAuthUrl(): string {
-    this.logger.debug('Gerando URL de autorização OAuth');
+    this.logger.debug('[OAUTH] Gerando URL de autorização');
     
     const authUrl = this.client.generateAuthUrl({
       access_type: 'offline',
@@ -46,7 +44,7 @@ export class OAuthHandler {
       prompt: 'consent'  // Força o prompt de consentimento para obter sempre um refresh token
     });
     
-    this.logger.debug(`URL de autorização OAuth gerada: ${authUrl}`);
+    this.logger.debug(`[OAUTH] URL gerada: ${authUrl}`);
     return authUrl;
   }
 
@@ -54,35 +52,29 @@ export class OAuthHandler {
    * Troca o código de autorização por tokens de acesso e atualização
    */
   public async exchangeCode(code: string): Promise<any> {
-    this.logger.debug('Trocando código de autorização por tokens');
-    this.logger.debug(`Código recebido (parcial): ${code.substring(0, 10)}...`);
+    this.logger.debug(`[OAUTH] Trocando código (parcial: ${code.substring(0, 10)}...) por tokens`);
     
     try {
-      this.logger.debug('Chamando OAuth2Client.getToken');
       const { tokens } = await this.client.getToken(code);
       
-      this.logger.debug('Tokens recebidos do servidor OAuth');
-      this.logger.debug(`Access token (parcial): ${tokens.access_token?.substring(0, 10)}...`);
-      this.logger.debug(`Refresh token presente: ${tokens.refresh_token ? 'Sim' : 'Não'}`);
-      this.logger.debug(`Token expira em: ${tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : 'N/A'}`);
+      this.logger.debug(`[OAUTH] Tokens recebidos | Access: ${tokens.access_token?.substring(0, 10)}... | Refresh: ${tokens.refresh_token ? 'presente' : 'ausente'} | Expiração: ${tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : 'N/A'}`);
       
       if (!tokens.refresh_token) {
-        this.logger.error('Nenhum refresh token retornado pelo servidor OAuth');
+        this.logger.error('[OAUTH] Nenhum refresh token retornado');
         throw new Error('Nenhum token de atualização retornado. Verifique se a solicitação inclui prompt=consent');
       }
       
       // Armazena os tokens no gerenciador de tokens
-      this.logger.debug('Salvando tokens no TokenManager');
+      this.logger.debug('[OAUTH] Salvando tokens');
       await this.tokenManager.saveTokens(tokens);
       
-      this.logger.debug('Configurando tokens no cliente OAuth2');
+      this.logger.debug('[OAUTH] Configurando cliente');
       this.client.setCredentials(tokens);
       
-      this.logger.debug('Troca de código por tokens concluída com sucesso');
+      this.logger.debug('[OAUTH] Troca concluída com sucesso');
       return tokens;
     } catch (error) {
-      this.logger.error('Erro ao trocar código por tokens:');
-      this.logger.error(error);
+      this.logger.error('[OAUTH] Erro ao trocar código por tokens:', error);
       throw error;
     }
   }
@@ -91,38 +83,31 @@ export class OAuthHandler {
    * Configura o cliente OAuth com tokens existentes
    */
   public async setupClientWithTokens(): Promise<OAuth2Client> {
-    this.logger.debug('Configurando cliente OAuth2 com tokens existentes');
+    this.logger.debug('[OAUTH] Configurando cliente com tokens existentes');
     
     try {
       // Tenta obter tokens salvos
-      this.logger.debug('Obtendo tokens do TokenManager');
       const tokens = await this.tokenManager.getTokens();
       
       if (!tokens) {
-        this.logger.error('Não há tokens salvos no TokenManager');
+        this.logger.error('[OAUTH] Tokens não encontrados');
         throw new Error('Não há tokens salvos. O usuário precisa autorizar primeiro.');
       }
       
-      this.logger.debug(`Access token (parcial): ${tokens.access_token?.substring(0, 10)}...`);
-      this.logger.debug(`Refresh token presente: ${tokens.refresh_token ? 'Sim' : 'Não'}`);
-      
+      let timeToExpiry = 0;
       if (tokens.expiry_date) {
         const expiryDate = new Date(tokens.expiry_date);
         const now = new Date();
-        const timeToExpiry = Math.floor((expiryDate.getTime() - now.getTime()) / 1000 / 60);
-        
-        this.logger.debug(`Token expira em: ${expiryDate.toISOString()}`);
-        this.logger.debug(`Tempo para expiração: aproximadamente ${timeToExpiry} minutos`);
+        timeToExpiry = Math.floor((expiryDate.getTime() - now.getTime()) / 1000 / 60);
       }
       
-      this.logger.debug('Configurando tokens no cliente OAuth2');
-      this.client.setCredentials(tokens);
+      this.logger.debug(`[OAUTH] Tokens carregados | Access: ${tokens.access_token?.substring(0, 10)}... | Refresh: ${tokens.refresh_token ? 'presente' : 'ausente'} | Expiração: ${timeToExpiry}min`);
       
-      this.logger.debug('Cliente OAuth2 configurado com sucesso');
+      this.client.setCredentials(tokens);
+      this.logger.debug('[OAUTH] Cliente configurado com sucesso');
       return this.client;
     } catch (error) {
-      this.logger.error('Erro ao configurar cliente com tokens:');
-      this.logger.error(error);
+      this.logger.error('[OAUTH] Erro ao configurar cliente:', error);
       throw error;
     }
   }
@@ -131,27 +116,25 @@ export class OAuthHandler {
    * Revoga os tokens atuais
    */
   public async revokeTokens(): Promise<void> {
-    this.logger.debug('Iniciando revogação de tokens');
+    this.logger.debug('[OAUTH] Iniciando revogação de tokens');
     
     try {
-      this.logger.debug('Obtendo tokens do TokenManager');
       const tokens = await this.tokenManager.getTokens();
       
       if (tokens && tokens.access_token) {
-        this.logger.debug(`Revogando access token (parcial): ${tokens.access_token.substring(0, 10)}...`);
+        this.logger.debug(`[OAUTH] Revogando access token: ${tokens.access_token.substring(0, 10)}...`);
         await this.client.revokeToken(tokens.access_token);
-        this.logger.debug('Access token revogado com sucesso');
+        this.logger.debug('[OAUTH] Access token revogado');
       } else {
-        this.logger.debug('Nenhum access token encontrado para revogar');
+        this.logger.debug('[OAUTH] Nenhum access token para revogar');
       }
       
-      this.logger.debug('Limpando tokens no TokenManager');
+      this.logger.debug('[OAUTH] Limpando tokens no TokenManager');
       await this.tokenManager.clearTokens();
       
-      this.logger.debug('Revogação de tokens concluída com sucesso');
+      this.logger.debug('[OAUTH] Revogação concluída');
     } catch (error) {
-      this.logger.error('Erro ao revogar tokens:');
-      this.logger.error(error);
+      this.logger.error('[OAUTH] Erro ao revogar tokens:', error);
       throw error;
     }
   }
@@ -160,7 +143,6 @@ export class OAuthHandler {
    * Obtém o cliente OAuth configurado
    */
   public getClient(): OAuth2Client {
-    this.logger.debug('Obtendo cliente OAuth2');
     return this.client;
   }
 } 

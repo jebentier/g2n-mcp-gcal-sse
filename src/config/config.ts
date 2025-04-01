@@ -29,18 +29,17 @@ export const loadConfig = (logger: ILogger = defaultLogger): Config => {
       LOG_LEVEL: process.env.LOG_LEVEL,
     });
     
-    logger.debug(`Configuração carregada: PORT=${config.PORT}, HOST=${config.HOST}, LOG_LEVEL=${config.LOG_LEVEL}`);
+    logger.debug(`[CONFIG] Carregada | PORT=${config.PORT}, HOST=${config.HOST}, LOG_LEVEL=${config.LOG_LEVEL}`);
     
     return config;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.error('Erro de configuração:');
+      logger.error('[CONFIG] Erro de validação:');
       error.errors.forEach(err => {
-        logger.error(`- ${err.path.join('.')}: ${err.message}`);
+        logger.error(`[CONFIG] Campo ${err.path.join('.')}: ${err.message}`);
       });
     } else {
-      logger.error('Erro desconhecido ao carregar configuração:');
-      logger.error(error);
+      logger.error('[CONFIG] Erro ao carregar:', error);
     }
     process.exit(1);
   }
@@ -68,12 +67,12 @@ export const buildBaseUrl = (config: Config, logger: ILogger = defaultLogger): s
       baseUrl = publicUrl;
     } else {
       baseUrl = `https://${publicUrl}`;
-      logger.warn(`PUBLIC_URL não contém protocolo, usando HTTPS por padrão: ${baseUrl}`);
-      logger.warn(`Se você está usando HTTP, defina explicitamente PUBLIC_URL=http://${publicUrl}`);
+      logger.warn(`[URL] Protocolo não especificado em PUBLIC_URL, usando HTTPS: ${baseUrl}`);
+      logger.warn(`[URL] Para usar HTTP, defina PUBLIC_URL=http://${publicUrl}`);
     }
   } else if (config.HOST === '0.0.0.0') {
     baseUrl = `http://localhost:${config.PORT}`;
-    logger.debug(`Usando URL local: ${baseUrl}`);
+    logger.debug(`[URL] Modo local detectado: ${baseUrl}`);
   } else {
     const host = config.HOST.trim();
     if (host.startsWith('http://') || host.startsWith('https://')) {
@@ -81,12 +80,12 @@ export const buildBaseUrl = (config: Config, logger: ILogger = defaultLogger): s
     } else {
       baseUrl = `http://${host}:${config.PORT}`;
     }
-    logger.debug(`Usando URL do host configurado: ${baseUrl}`);
+    logger.debug(`[URL] Usando host configurado: ${baseUrl}`);
   }
   
   // Remove a barra no final, se existir
   baseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-  logger.debug(`URL base final: ${baseUrl}`);
+  logger.debug(`[URL] Base final: ${baseUrl}`);
   
   return baseUrl;
 }; 
