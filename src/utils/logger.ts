@@ -30,8 +30,9 @@ winston.addColors(colors);
 
 // Obtém o nível de log base da ENV
 const getBaseLevel = (): string => {
-  const envLevel = process.env.LOG_LEVEL?.split(',')[0]?.trim().toLowerCase();
-  return (envLevel && envLevel in levels) ? envLevel : 'info';
+  // Usa 'silly' como base para permitir todos os níveis possíveis
+  // O controle real será feito pela função isLevelEnabled
+  return 'silly';
 };
 
 // Verifica se um nível específico está ativo
