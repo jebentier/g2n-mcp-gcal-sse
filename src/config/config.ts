@@ -8,6 +8,7 @@ export const ConfigSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string(),
   OAUTH_REDIRECT_PATH: z.string().default('/oauth/callback'),
   PUBLIC_URL: z.string().optional(),
+  LOG_LEVEL: z.string().default('error,warn,info'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -22,6 +23,7 @@ export const loadConfig = (): Config => {
       GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
       OAUTH_REDIRECT_PATH: process.env.OAUTH_REDIRECT_PATH,
       PUBLIC_URL: process.env.PUBLIC_URL,
+      LOG_LEVEL: process.env.LOG_LEVEL,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
