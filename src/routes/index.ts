@@ -18,19 +18,20 @@ export const createRouter = (
   const router = Router();
 
   // Endpoint de saúde
-  router.get('/health', async (_: Request, res: Response) => {
+  router.get('/health', async (req: Request, res: Response) => {
     const isAuthenticated = await calendarService.isAuthenticated();
-    
-    res.status(200).json({ 
+    const responseData = { 
       status: 'ok', 
       server: serverName, 
       version: serverVersion,
       authenticated: isAuthenticated 
-    });
+    };
+    
+    res.status(200).json(responseData);
   });
 
   // Endpoint para iniciar fluxo de autorização OAuth
-  router.get('/auth', (_: Request, res: Response) => {
+  router.get('/auth', (req: Request, res: Response) => {
     const authUrl = calendarService.getAuthUrl();
     res.redirect(authUrl);
   });
@@ -68,7 +69,7 @@ export const createRouter = (
   });
 
   // Endpoint para revogar o acesso
-  router.post('/revoke', async (_: Request, res: Response) => {
+  router.post('/revoke', async (req: Request, res: Response) => {
     try {
       await calendarService.revokeAccess();
       res.status(200).json({ success: true, message: 'Acesso revogado com sucesso' });
@@ -79,18 +80,23 @@ export const createRouter = (
   });
 
   // Endpoint SSE para eventos
-  router.get('/sse', checkMcpServerInitialized(() => server.getMcpServer()), async (_: Request, res: Response) => {
+  router.get('/sse', checkMcpServerInitialized(() => server.getMcpServer()), async (req: Request, res: Response) => {
     try {      
       const transport = new SSEServerTransport('/messages', res);
-      transports[transport.sessionId] = transport;
+      const transportId = transport.sessionId;
+      transports[transportId] = transport;
+      
+      logger.debug(`[ROUTES] SSE conexão estabelecida | SessionID: ${transportId}`);
       
       res.on('close', () => {
-        delete transports[transport.sessionId];
+        logger.debug(`[ROUTES] SSE conexão fechada | SessionID: ${transportId}`);
+        delete transports[transportId];
       });
       
-      const mcpServer = server.getMcpServer();
+      const mcpServer: McpServer | undefined = server.getMcpServer();
       if (mcpServer) {
         await mcpServer.connect(transport);
+        logger.debug(`[ROUTES] MCP conectado ao transporte | SessionID: ${transportId}`);
       }
     } catch (error) {
       logger.error('[ROUTES] Erro na conexão SSE:', error);
@@ -104,8 +110,14 @@ export const createRouter = (
     const transport = transports[sessionId];
     
     if (transport) {
-      await transport.handlePostMessage(req, res);
+      try {
+        await transport.handlePostMessage(req, res, req.body);
+        logger.debug(`[ROUTES] Mensagem processada | SessionID: ${sessionId}`);
+      } catch (error) {
+        logger.error(`[ROUTES] Erro ao processar mensagem | SessionID: ${sessionId}:`, error);
+      }
     } else {
+      logger.debug(`[ROUTES] Erro: SessionID inválido: ${sessionId}`);
       res.status(400).send('Nenhum transporte encontrado para o sessionId');
     }
   });

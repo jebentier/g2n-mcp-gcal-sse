@@ -6,7 +6,7 @@ import { TokenManager } from '../auth/tokenManager.js';
 import { OAuthHandler } from '../auth/oauthHandler.js';
 import { GoogleCalendarService } from '../services/googleCalendar.js';
 import { registerCalendarTools } from '../tools/calendarTools.js';
-import { corsMiddleware } from '../middleware/index.js';
+import { corsMiddleware, requestLoggerMiddleware } from '../middleware/index.js';
 import { createRouter } from '../routes/index.js';
 import { Config, buildBaseUrl } from '../config/config.js';
 import { ILogger } from '../utils/logger.js';
@@ -58,7 +58,9 @@ export class Server {
     this.calendarService = new GoogleCalendarService(oauthHandler, tokenManager, this.logger);
 
     // Configurar middlewares e rotas
+    this.app.use(express.json());
     this.app.use(corsMiddleware);
+    this.app.use(requestLoggerMiddleware(this.logger));
     this.app.use('/', createRouter(
       this,
       this.calendarService,
