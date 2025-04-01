@@ -49,19 +49,20 @@ const getLogLevels = (): string[] => {
 
 // Classe personalizada de transporte para filtrar níveis
 class FilteredConsoleTransport extends winston.transports.Console {
+  private enabledLevels: Set<string>;
+
   constructor(options: winston.transports.ConsoleTransportOptions & { enabledLevels: string[] }) {
-    super(options);
     const { enabledLevels, ...rest } = options;
+    super(rest);
     this.enabledLevels = new Set(enabledLevels);
   }
-
-  private enabledLevels: Set<string>;
 
   log(info: any, callback: () => void) {
     if (this.enabledLevels.has(info.level)) {
       if (typeof super.log === 'function') {
         super.log(info, callback);
       } else {
+        console.log(info[Symbol.for('message')]);
         callback();
       }
     } else {
