@@ -38,6 +38,7 @@ COPY --from=builder /app/build ./build
 
 # Cria diretório para armazenar tokens
 RUN mkdir -p /app/data && \
+    chown -R node:node /app/data && \
     chmod 755 /app/data
 
 # Criar diretório de logs e ajustar permissões
