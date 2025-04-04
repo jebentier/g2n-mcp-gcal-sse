@@ -1,68 +1,97 @@
 import fs from 'fs';
 import path from 'path';
 import { Credentials } from 'google-auth-library';
+import { ILogger } from '../utils/logger.js';
 
-interface TokenConfig {
+interface TokenManagerConfig {
   tokenStoragePath: string;
   tokenRefreshInterval: number; // em milissegundos
 }
 
+/**
+ * Gerencia os tokens de acesso e refresh do OAuth2
+ */
 export class TokenManager {
-  private config: TokenConfig;
-  private refreshTimer: NodeJS.Timeout | null = null;
-  private onTokenRefresh: ((tokens: Credentials) => void) | null = null;
+  private config: TokenManagerConfig;
+  private tokens: Credentials | null = null;
+  private tokenRefreshListener: ((credentials: Credentials) => Promise<void>) | null = null;
+  private refreshTimerId: NodeJS.Timeout | null = null;
+  private logger: ILogger;
 
-  constructor(config: TokenConfig) {
-    this.config = {
-      tokenStoragePath: config.tokenStoragePath || path.join(process.cwd(), 'tokens.json'),
-      tokenRefreshInterval: config.tokenRefreshInterval || 30 * 60 * 1000, // 30 minutos por padrão
-    };
-
-    // Certifica-se de que o diretório de armazenamento existe
-    const tokenDir = path.dirname(this.config.tokenStoragePath);
-    if (!fs.existsSync(tokenDir)) {
-      fs.mkdirSync(tokenDir, { recursive: true });
+  constructor(config: TokenManagerConfig, logger: ILogger) {
+    this.config = config;
+    this.logger = logger;
+    this.logger.debug(`[TOKEN] Inicializado | Armazenamento: ${config.tokenStoragePath} | Intervalo: ${config.tokenRefreshInterval / 60000} min`);
+    
+    // Garantir que o diretório de tokens exista
+    const dir = path.dirname(this.config.tokenStoragePath);
+    if (!fs.existsSync(dir)) {
+      this.logger.debug(`[TOKEN] Criando diretório: ${dir}`);
+      fs.mkdirSync(dir, { recursive: true });
     }
   }
 
   /**
-   * Salva os tokens no armazenamento
+   * Salva os tokens no sistema de arquivos
    */
-  public async saveTokens(tokens: Credentials): Promise<void> {
+  public async saveTokens(credentials: Credentials): Promise<void> {
+    this.logger.debug(`[TOKEN] Salvando | Expiração: ${credentials.expiry_date ? new Date(credentials.expiry_date).toISOString() : 'N/A'} | Refresh: ${credentials.refresh_token ? 'presente' : 'ausente'}`);
+    
     try {
+      this.tokens = credentials;
+      const dir = path.dirname(this.config.tokenStoragePath);
+      
+      if (!fs.existsSync(dir)) {
+        this.logger.debug(`[TOKEN] Criando diretório: ${dir}`);
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
       await fs.promises.writeFile(
         this.config.tokenStoragePath,
-        JSON.stringify(tokens, null, 2)
+        JSON.stringify(credentials, null, 2)
       );
       
-      console.log('Tokens salvos com sucesso');
-      
-      // Configura o temporizador para atualização automática do token
-      this.setupTokenRefreshTimer(tokens);
-      
-      // Notifica os ouvintes sobre a atualização do token
-      if (this.onTokenRefresh) {
-        this.onTokenRefresh(tokens);
-      }
+      this.logger.info(`[TOKEN] Salvo com sucesso em ${this.config.tokenStoragePath}`);
     } catch (error) {
-      console.error('Erro ao salvar tokens:', error);
+      this.logger.error('[TOKEN] Erro ao salvar:', error);
       throw error;
     }
   }
 
   /**
-   * Obtém os tokens do armazenamento
+   * Carrega os tokens do sistema de arquivos
    */
   public async getTokens(): Promise<Credentials | null> {
+  
     try {
-      if (!fs.existsSync(this.config.tokenStoragePath)) {
-        return null;
+      if (this.tokens) {
+        this.logger.debug('[TOKEN] Usando tokens em memória');
+        return this.tokens;
       }
       
-      const tokensData = await fs.promises.readFile(this.config.tokenStoragePath, 'utf-8');
-      return JSON.parse(tokensData) as Credentials;
+      this.logger.debug(`[TOKEN] Carregando de ${this.config.tokenStoragePath}`);
+
+      if (fs.existsSync(this.config.tokenStoragePath)) {
+        const tokensData = await fs.promises.readFile(
+          this.config.tokenStoragePath, 
+          'utf8'
+        );
+        
+        this.tokens = JSON.parse(tokensData);
+        
+        if (this.tokens && this.tokens.expiry_date) {
+          const expiryDate = new Date(this.tokens.expiry_date);
+          this.logger.debug(`[TOKEN] Carregado | Expira em: ${expiryDate.toISOString()}`);
+        }
+        
+        return this.tokens;
+      }
+      
+      this.logger.debug('[TOKEN] Arquivo não encontrado');
+      return null;
     } catch (error) {
-      console.error('Erro ao obter tokens:', error);
+      this.logger.error('[TOKEN] Erro ao carregar:', error);
+      this.tokens = null;
       return null;
     }
   }
@@ -71,101 +100,116 @@ export class TokenManager {
    * Limpa os tokens armazenados
    */
   public async clearTokens(): Promise<void> {
+    this.logger.debug('[TOKEN] Limpando tokens');
+    
     try {
+      this.tokens = null;
+      
       if (fs.existsSync(this.config.tokenStoragePath)) {
+        this.logger.debug(`[TOKEN] Removendo arquivo: ${this.config.tokenStoragePath}`);
         await fs.promises.unlink(this.config.tokenStoragePath);
       }
       
-      if (this.refreshTimer) {
-        clearTimeout(this.refreshTimer);
-        this.refreshTimer = null;
-      }
+      this.logger.info('[TOKEN] Removido com sucesso');
       
-      console.log('Tokens removidos com sucesso');
+      // Limpa qualquer timer de refresh ativo
+      if (this.refreshTimerId) {
+        this.logger.debug('[TOKEN] Cancelando timer de refresh');
+        clearTimeout(this.refreshTimerId);
+        this.refreshTimerId = null;
+      }
     } catch (error) {
-      console.error('Erro ao limpar tokens:', error);
+      this.logger.error('[TOKEN] Erro ao limpar:', error);
       throw error;
     }
   }
 
   /**
-   * Verifica se existem tokens válidos armazenados
+   * Verifica se há tokens válidos disponíveis
    */
   public async hasValidTokens(): Promise<boolean> {
+    this.logger.debug('[TOKEN] Verificando validade');
+    
     try {
       const tokens = await this.getTokens();
       
       if (!tokens) {
+        this.logger.debug('[TOKEN] Nenhum token encontrado');
         return false;
       }
       
-      // Verifica se há um token de acesso
-      if (!tokens.access_token) {
-        return false;
-      }
+      const hasRefreshToken = !!tokens.refresh_token;
       
-      // Se houver uma data de expiração, verifica se o token expirou
+      // Verifica se o access token está válido
       if (tokens.expiry_date) {
         const now = Date.now();
-        // Se o token expira em menos de 5 minutos, considera inválido
-        if (tokens.expiry_date <= now + 5 * 60 * 1000) {
-          return false;
-        }
+        const isValid = tokens.expiry_date > now;
+        const timeRemaining = (tokens.expiry_date - now) / 1000 / 60; // em minutos
+        
+        this.logger.debug(`[TOKEN] Status: ${isValid ? 'válido' : 'expirado'} | Refresh: ${hasRefreshToken ? 'sim' : 'não'} | Tempo restante: ${timeRemaining.toFixed(2)}min`);
+        
+        // Considera válido se tem refresh_token, mesmo que o access_token esteja expirado
+        return hasRefreshToken;
       }
       
-      return true;
+      this.logger.debug('[TOKEN] Sem data de expiração, considerando inválido');
+      return false;
     } catch (error) {
-      console.error('Erro ao verificar validade dos tokens:', error);
+      this.logger.error('[TOKEN] Erro ao verificar validade:', error);
       return false;
     }
   }
 
   /**
-   * Configura o temporizador para atualização automática do token
+   * Configura a atualização automática de tokens
    */
-  private setupTokenRefreshTimer(tokens: Credentials): void {
-    // Limpa o temporizador anterior, se existir
-    if (this.refreshTimer) {
-      clearTimeout(this.refreshTimer);
+  public setupTokenRefresh(listener: (credentials: Credentials) => Promise<void>): void {
+    this.logger.debug('[TOKEN] Configurando refresh automático');
+    this.tokenRefreshListener = listener;
+    
+    // Cancela qualquer timer existente
+    if (this.refreshTimerId) {
+      this.logger.debug('[TOKEN] Cancelando timer anterior');
+      clearTimeout(this.refreshTimerId);
+      this.refreshTimerId = null;
     }
     
-    // Se não houver data de expiração, usa o intervalo padrão
-    let refreshTime = this.config.tokenRefreshInterval;
-    
-    // Se houver uma data de expiração, calcula o tempo até precisar renovar
-    if (tokens.expiry_date) {
-      const expiryTime = tokens.expiry_date;
-      const now = Date.now();
-      // Atualiza 5 minutos antes da expiração
-      refreshTime = Math.max(expiryTime - now - 5 * 60 * 1000, 0); 
-    }
-    
-    console.log(`Configurando atualização automática de token em ${refreshTime / 1000 / 60} minutos`);
-    
-    // Configura o temporizador
-    this.refreshTimer = setTimeout(() => {
-      this.triggerTokenRefresh();
-    }, refreshTime);
-  }
-
-  /**
-   * Dispara a lógica de atualização de token quando necessário
-   */
-  private triggerTokenRefresh(): void {
-    console.log('Iniciando atualização automática de token...');
-    // A lógica real de atualização deve ser manipulada pelo cliente OAuth
-    // Este método apenas notifica o ouvinte registrado
-    this.getTokens().then((tokens) => {
-      if (tokens && this.onTokenRefresh) {
-        this.onTokenRefresh(tokens);
+    const checkAndRefreshToken = async () => {
+      try {
+        const tokens = await this.getTokens();
+        
+        if (tokens && tokens.expiry_date && tokens.refresh_token) {
+          const now = Date.now();
+          const timeToExpiry = tokens.expiry_date - now;
+          const timeToExpiryMinutes = timeToExpiry / 1000 / 60;
+          const shouldRefresh = timeToExpiry < 15 * 60 * 1000; // Refresh if less than 15 minutes left
+          
+          this.logger.debug(`[TOKEN] Verificando | Expira em: ${timeToExpiryMinutes.toFixed(2)}min | Refresh necessário: ${shouldRefresh ? 'sim' : 'não'}`);
+          
+          if (shouldRefresh && this.tokenRefreshListener) {
+            this.logger.debug('[TOKEN] Iniciando refresh');
+            await this.tokenRefreshListener(tokens);
+            this.logger.info('[TOKEN] Atualizado com sucesso');
+          }
+        } else if (!tokens) {
+          this.logger.debug('[TOKEN] Não disponível para refresh');
+        } else if (!tokens.refresh_token) {
+          this.logger.debug('[TOKEN] Refresh token ausente');
+        } else if (!tokens.expiry_date) {
+          this.logger.debug('[TOKEN] Sem data de expiração');
+        }
+      } catch (error) {
+        this.logger.error('[TOKEN] Erro durante refresh:', error);
       }
-    });
-  }
-
-  /**
-   * Registra um ouvinte para eventos de atualização de token
-   */
-  public setTokenRefreshListener(listener: (tokens: Credentials) => void): void {
-    this.onTokenRefresh = listener;
+      
+      // Agenda o próximo check
+      const nextCheckMinutes = this.config.tokenRefreshInterval / 60000;
+      this.logger.debug(`[TOKEN] Próxima verificação em ${nextCheckMinutes}min`);
+      this.refreshTimerId = setTimeout(checkAndRefreshToken, this.config.tokenRefreshInterval);
+    };
+    
+    // Inicia o ciclo de refresh e executa imediatamente a primeira verificação
+    this.logger.debug('[TOKEN] Iniciando ciclo de refresh');
+    checkAndRefreshToken();
   }
 } 

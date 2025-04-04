@@ -1,6 +1,6 @@
 {
   "name": "g2n-mcp-gcal-sse",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Servidor MCP com SSE para Google Calendar",
   "main": "build/index.js",
   "type": "module",
@@ -10,9 +10,9 @@
     "dev": "ts-node-esm src/index.ts",
     "lint": "eslint src/**/*.ts",
     "test": "jest",
-    "docker:build": "docker build -t gabrielg2n/g2n-mcp-gcal-sse:1.0.1 .",
-    "docker:push": "docker push gabrielg2n/g2n-mcp-gcal-sse:1.0.1",
-    "docker:build-multi": "docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t gabrielg2n/g2n-mcp-gcal-sse:1.0.1 --push ."
+    "docker:build": "docker build -t gabrielg2n/g2n-mcp-gcal-sse:1.1.0 .",
+    "docker:push": "docker push gabrielg2n/g2n-mcp-gcal-sse:1.1.0",
+    "docker:build-multi": "docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t gabrielg2n/g2n-mcp-gcal-sse:1.1.0 --push ."
   },
   "repository": {
     "type": "git",
@@ -38,9 +38,12 @@
     "@modelcontextprotocol/sdk": "^1.8.0",
     "express": "^5.0.1",
     "googleapis": "^148.0.0",
+    "triple-beam": "^1.4.1",
+    "winston": "^3.17.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.14",

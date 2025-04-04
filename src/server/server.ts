@@ -6,28 +6,34 @@ import { TokenManager } from '../auth/tokenManager.js';
 import { OAuthHandler } from '../auth/oauthHandler.js';
 import { GoogleCalendarService } from '../services/googleCalendar.js';
 import { registerCalendarTools } from '../tools/calendarTools.js';
-import { corsMiddleware } from '../middleware/index.js';
+import { corsMiddleware, requestLoggerMiddleware } from '../middleware/index.js';
 import { createRouter } from '../routes/index.js';
 import { Config, buildBaseUrl } from '../config/config.js';
+import { ILogger } from '../utils/logger.js';
 
 export class Server {
   private app: express.Application;
   private mcpServer: McpServer | undefined;
   private calendarService: GoogleCalendarService;
   private transports: { [sessionId: string]: SSEServerTransport } = {};
+  private heartbeatIntervals: { [sessionId: string]: NodeJS.Timeout } = {};
   private readonly serverName: string;
   private readonly serverVersion: string;
+  private logger: ILogger;
 
-  constructor(config: Config, serverName: string, serverVersion: string) {
+  constructor(config: Config, serverName: string, serverVersion: string, logger: ILogger) {
     this.serverName = serverName;
     this.serverVersion = serverVersion;
+    this.logger = logger;
     this.app = express();
+
+    this.logger.debug(`[INIT] Servidor ${serverName} v${serverVersion} | Configurações: PORT=${config.PORT}, HOST=${config.HOST}, URL=${config.PUBLIC_URL || 'não definida'}`);
 
     // Configurar o gerenciador de tokens
     const tokenManager = new TokenManager({
       tokenStoragePath: path.join(process.cwd(), 'data', 'tokens.json'),
       tokenRefreshInterval: 30 * 60 * 1000, // 30 minutos
-    });
+    }, this.logger);
 
     // Configurar o manipulador OAuth
     const baseUrl = buildBaseUrl(config);
@@ -36,6 +42,8 @@ export class Server {
       : `/${config.OAUTH_REDIRECT_PATH}`;
     
     const redirectUri = `${baseUrl}${redirectPath}`;
+    
+    this.logger.debug(`[OAUTH] Configurando handler com URI=${redirectUri} e escopos=["calendar", "calendar.events"]`);
 
     const oauthHandler = new OAuthHandler({
       clientId: config.GOOGLE_CLIENT_ID,
@@ -45,44 +53,51 @@ export class Server {
         'https://www.googleapis.com/auth/calendar',
         'https://www.googleapis.com/auth/calendar.events'
       ],
-    }, tokenManager);
+    }, tokenManager, this.logger);
 
     // Inicializar o serviço do Google Calendar
-    this.calendarService = new GoogleCalendarService(oauthHandler, tokenManager);
+    this.calendarService = new GoogleCalendarService(oauthHandler, tokenManager, this.logger);
 
-    // Configurar middlewares
+    // Configurar middlewares e rotas
+    this.app.use(express.json());
     this.app.use(corsMiddleware);
-
-    // Configurar rotas
+    this.app.use(requestLoggerMiddleware(this.logger));
     this.app.use('/', createRouter(
       this,
       this.calendarService,
       this.transports,
       this.serverName,
-      this.serverVersion
+      this.serverVersion,
+      this.logger,
+      this.heartbeatIntervals
     ));
+    
+    this.logger.debug('[INIT] Servidor configurado com sucesso');
   }
 
   public async start(port: string, host: string): Promise<void> {
+    this.logger.info(`[SERVER] Iniciando em ${host}:${port}`);
+    
     // Tentar inicializar o servidor MCP se já estiver autenticado
     try {
       const isInitialized = await this.calendarService.initialize();
       if (isInitialized) {
-        console.log('Serviço do Google Calendar inicializado com sucesso');
+        this.logger.info('[GCAL] Serviço inicializado com sucesso');
         await this.initializeMcpServer();
-        console.log('Servidor MCP inicializado automaticamente');
+        this.logger.info('[MCP] Servidor inicializado automaticamente');
       } else {
         const authUrl = this.calendarService.getAuthUrl();
-        console.log('Serviço do Google Calendar requer autenticação');
-        console.log(`URL de autenticação: ${authUrl}`);
+        this.logger.info('[GCAL] Autenticação necessária');
+        this.logger.info(`[AUTH] URL: ${authUrl}`);
       }
     } catch (error) {
-      console.error('Erro ao tentar inicializar servidor MCP:', error);
+      this.logger.error('[MCP] Falha na inicialização:', error);
+      this.logger.info('[SERVER] Iniciando sem integração MCP');
     }
 
     return new Promise((resolve) => {
       this.app.listen(parseInt(port), host, () => {
-        console.log(`Servidor ${this.serverName} v${this.serverVersion} iniciado em ${host}:${port}`);
+        this.logger.info(`[SERVER] ${this.serverName} v${this.serverVersion} em execução: http://${host}:${port}`);
         resolve();
       });
     });
@@ -94,7 +109,8 @@ export class Server {
       version: this.serverVersion,
     });
 
-    registerCalendarTools(this.mcpServer, this.calendarService);
+    this.logger.debug('[MCP] Registrando ferramentas de calendário');
+    registerCalendarTools(this.mcpServer, this.calendarService, this.logger);
   }
 
   public getMcpServer(): McpServer | undefined {

@@ -8,21 +8,28 @@ import {
   UpdateEventSchema,
   DeleteEventSchema,
   ListColorsSchema,
-  ListEventsParams,
+  ListCalendarsParams,
   GetCalendarParams,
+  ListEventsParams,
   GetEventParams,
   CreateEventParams,
   UpdateEventParams,
-  DeleteEventParams
+  DeleteEventParams,
+  ListColorsParams
 } from '../types/index.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { ILogger } from '../utils/logger.js';
 
-export const registerCalendarTools = (server: McpServer, calendarService: GoogleCalendarService): void => {
-  // List Calendars
+export function registerCalendarTools(
+  server: McpServer, 
+  calendarService: GoogleCalendarService,
+  logger: ILogger
+): void {
+  // Lista de calendários
   server.tool(
     'list-calendars',
-    'Listar todos os calendários disponíveis',
-    async (extra) => {
+    'Lista todos os calendários disponíveis',
+    async () => {
       try {
         const calendars = await calendarService.listCalendars();
         return {
@@ -34,7 +41,7 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
           ]
         };
       } catch (error) {
-        console.error('Erro ao listar calendários:', error);
+        logger.error('[TOOLS] Erro ao listar calendários:', error);
         return {
           content: [
             {
@@ -48,12 +55,12 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
     }
   );
 
-  // Get Calendar
+  // Obter calendário específico
   server.tool(
     'get-calendar',
     'Obtenha detalhes de um calendário específico',
     GetCalendarSchema.shape,
-    async (params: GetCalendarParams, extra) => {
+    async (params: GetCalendarParams) => {
       try {
         const calendar = await calendarService.getCalendar(params.calendarId);
         return {
@@ -65,7 +72,7 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
           ]
         };
       } catch (error) {
-        console.error(`Erro ao obter calendário ${params.calendarId}:`, error);
+        logger.error(`[TOOLS] Erro ao obter calendário ${params.calendarId}:`, error);
         return {
           content: [
             {
@@ -79,22 +86,14 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
     }
   );
 
-  // List Events
+  // Listar eventos
   server.tool(
     'list-events',
     'Listar eventos de um calendário com opções de filtragem',
     ListEventsSchema.shape,
-    async (params: ListEventsParams, extra) => {
+    async (params: ListEventsParams) => {
       try {
-        const events = await calendarService.listEvents({
-          calendarId: params.calendarId,
-          timeMin: params.timeMin,
-          timeMax: params.timeMax,
-          maxResults: params.maxResults,
-          q: params.q,
-          singleEvents: params.singleEvents,
-          orderBy: params.orderBy
-        });
+        const events = await calendarService.listEvents(params);
         return {
           content: [
             {
@@ -104,7 +103,7 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
           ]
         };
       } catch (error) {
-        console.error(`Erro ao listar eventos do calendário ${params.calendarId}:`, error);
+        logger.error(`[TOOLS] Erro ao listar eventos do calendário ${params.calendarId}:`, error);
         return {
           content: [
             {
@@ -118,12 +117,12 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
     }
   );
 
-  // Get Event
+  // Obter evento específico
   server.tool(
     'get-event',
     'Obtenha informações detalhadas sobre um evento específico',
     GetEventSchema.shape,
-    async (params: GetEventParams, extra) => {
+    async (params: GetEventParams) => {
       try {
         const event = await calendarService.getEvent(params.calendarId, params.eventId);
         return {
@@ -135,7 +134,7 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
           ]
         };
       } catch (error) {
-        console.error(`Erro ao obter evento ${params.eventId}:`, error);
+        logger.error(`[TOOLS] Erro ao obter evento ${params.eventId}:`, error);
         return {
           content: [
             {
@@ -149,12 +148,12 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
     }
   );
 
-  // Create Event
+  // Criar evento
   server.tool(
     'create-event',
     'Criar um novo evento de calendário',
     CreateEventSchema.shape,
-    async (params: CreateEventParams, extra) => {
+    async (params: CreateEventParams) => {
       try {
         // Extrai os dados relevantes do evento do parâmetro
         const { calendarId, ...eventData } = params;
@@ -169,7 +168,7 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
           ]
         };
       } catch (error) {
-        console.error('Erro ao criar evento:', error);
+        logger.error('[TOOLS] Erro ao criar evento:', error);
         return {
           content: [
             {
@@ -183,12 +182,12 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
     }
   );
 
-  // Update Event
+  // Atualizar evento
   server.tool(
     'update-event',
     'Atualizar um evento de calendário existente',
     UpdateEventSchema.shape,
-    async (params: UpdateEventParams, extra) => {
+    async (params: UpdateEventParams) => {
       try {
         const { calendarId, eventId, ...eventData } = params;
         
@@ -202,7 +201,7 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
           ]
         };
       } catch (error) {
-        console.error(`Erro ao atualizar evento ${params.eventId}:`, error);
+        logger.error(`[TOOLS] Erro ao atualizar evento ${params.eventId}:`, error);
         return {
           content: [
             {
@@ -216,28 +215,26 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
     }
   );
 
-  // Delete Event
+  // Excluir evento
   server.tool(
     'delete-event',
     'Excluir um evento do calendário',
     DeleteEventSchema.shape,
-    async (params: DeleteEventParams, extra) => {
+    async (params: DeleteEventParams) => {
       try {
-        const result = await calendarService.deleteEvent(
-          params.calendarId, 
-          params.eventId, 
-          params.sendUpdates
-        );
+        const { calendarId, eventId, sendUpdates } = params;
+        
+        await calendarService.deleteEvent(calendarId, eventId, sendUpdates);
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(result, null, 2)
+              text: `Evento ${eventId} excluído com sucesso`
             }
           ]
         };
       } catch (error) {
-        console.error(`Erro ao excluir evento ${params.eventId}:`, error);
+        logger.error(`[TOOLS] Erro ao excluir evento ${params.eventId}:`, error);
         return {
           content: [
             {
@@ -251,11 +248,11 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
     }
   );
 
-  // List Colors
+  // Listar cores disponíveis
   server.tool(
     'list-colors',
     'Listar cores disponíveis para eventos e calendários',
-    async (extra) => {
+    async () => {
       try {
         const colors = await calendarService.listColors();
         return {
@@ -267,7 +264,7 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
           ]
         };
       } catch (error) {
-        console.error('Erro ao listar cores disponíveis:', error);
+        logger.error('[TOOLS] Erro ao listar cores disponíveis:', error);
         return {
           content: [
             {
@@ -280,4 +277,4 @@ export const registerCalendarTools = (server: McpServer, calendarService: Google
       }
     }
   );
-}; 
+}
