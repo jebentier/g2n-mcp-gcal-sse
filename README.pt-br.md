@@ -24,8 +24,13 @@ O servidor fornece as seguintes ferramentas MCP para gerenciamento do Google Cal
 - `list-colors`: Listar cores disponíveis para eventos e calendários
 
 ### Novidades na v1.1.0
-- Versão preparada para novas funcionalidades
-- Versão base para próximas melhorias
+- Sistema de logging abrangente com níveis de log configuráveis
+- Middleware de logging de requisições/respostas para melhor monitoramento
+- Implementação de heartbeat SSE para conexões estáveis
+- Tratamento de erros e capacidades de depuração aprimorados
+- Configuração Docker melhorada com permissões adequadas para o diretório de dados
+- Fluxo OAuth aprimorado com melhor gerenciamento de tokens
+- Refatoração de código para melhor manutenibilidade
 
 ### Novidades na v1.0.1
 
