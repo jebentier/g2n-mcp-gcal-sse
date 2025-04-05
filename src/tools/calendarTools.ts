@@ -27,9 +27,10 @@ export function registerCalendarTools(
 ): void {
   // List calendars
   server.tool(
-    'list-calendars',
+    'listCalendars',
     'List all available calendars',
-    async () => {
+    ListCalendarsSchema.shape,
+    async (params: ListCalendarsParams) => {
       try {
         const calendars = await calendarService.listCalendars();
         return {
@@ -57,7 +58,7 @@ export function registerCalendarTools(
 
   // Get specific calendar
   server.tool(
-    'get-calendar',
+    'getCalendar',
     'Get details of a specific calendar',
     GetCalendarSchema.shape,
     async (params: GetCalendarParams) => {
@@ -88,7 +89,7 @@ export function registerCalendarTools(
 
   // List events
   server.tool(
-    'list-events',
+    'listEvents',
     'List events of a calendar with filtering options',
     ListEventsSchema.shape,
     async (params: ListEventsParams) => {
@@ -119,7 +120,7 @@ export function registerCalendarTools(
 
   // Get specific event
   server.tool(
-    'get-event',
+    'getEvent',
     'Get detailed information about a specific event',
     GetEventSchema.shape,
     async (params: GetEventParams) => {
@@ -150,7 +151,7 @@ export function registerCalendarTools(
 
   // Create event
   server.tool(
-    'create-event',
+    'createEvent',
     'Create a new calendar event',
     CreateEventSchema.shape,
     async (params: CreateEventParams) => {
@@ -184,7 +185,7 @@ export function registerCalendarTools(
 
   // Update event
   server.tool(
-    'update-event',
+    'updateEvent',
     'Update an existing calendar event',
     UpdateEventSchema.shape,
     async (params: UpdateEventParams) => {
@@ -217,7 +218,7 @@ export function registerCalendarTools(
 
   // Delete event
   server.tool(
-    'delete-event',
+    'deleteEvent',
     'Delete a calendar event',
     DeleteEventSchema.shape,
     async (params: DeleteEventParams) => {
@@ -250,9 +251,10 @@ export function registerCalendarTools(
 
   // List available colors
   server.tool(
-    'list-colors',
+    'listColors',
     'List available colors for events and calendars',
-    async () => {
+    ListColorsSchema.shape,
+    async (params: ListColorsParams) => {
       try {
         const colors = await calendarService.listColors();
         return {
