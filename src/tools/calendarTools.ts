@@ -26,35 +26,35 @@ export function registerCalendarTools(
   logger: ILogger
 ): void {
   // List calendars
-  server.tool(
-    'listCalendars',
-    'List all available calendars',
-    ListCalendarsSchema.shape,
-    async (params: ListCalendarsParams) => {
-      try {
-        const calendars = await calendarService.listCalendars();
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(calendars, null, 2)
-            }
-          ]
-        };
-      } catch (error) {
-        logger.error('[TOOLS] Error listing calendars:', error);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Error listing calendars: ${error}`
-            }
-          ],
-          isError: true
-        };
-      }
-    }
-  );
+  // server.tool(
+  //   'listCalendars',
+  //   'List all available calendars',
+  //   ListCalendarsSchema.shape,
+  //   async (params: ListCalendarsParams) => {
+  //     try {
+  //       const calendars = await calendarService.listCalendars();
+  //       return {
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: JSON.stringify(calendars, null, 2)
+  //           }
+  //         ]
+  //       };
+  //     } catch (error) {
+  //       logger.error('[TOOLS] Error listing calendars:', error);
+  //       return {
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: `Error listing calendars: ${error}`
+  //           }
+  //         ],
+  //         isError: true
+  //       };
+  //     }
+  //   }
+  // );
 
   // Get specific calendar
   server.tool(
@@ -250,33 +250,33 @@ export function registerCalendarTools(
   );
 
   // List available colors
-  server.tool(
-    'listColors',
-    'List available colors for events and calendars',
-    ListColorsSchema.shape,
-    async (params: ListColorsParams) => {
-      try {
-        const colors = await calendarService.listColors();
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(colors, null, 2)
-            }
-          ]
-        };
-      } catch (error) {
-        logger.error('[TOOLS] Error listing available colors:', error);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Error listing available colors: ${error}`
-            }
-          ],
-          isError: true
-        };
-      }
-    }
-  );
+  // server.tool(
+  //   'listColors',
+  //   'List available colors for events and calendars',
+  //   ListColorsSchema.shape,
+  //   async (params: ListColorsParams) => {
+  //     try {
+  //       const colors = await calendarService.listColors();
+  //       return {
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: JSON.stringify(colors, null, 2)
+  //           }
+  //         ]
+  //       };
+  //     } catch (error) {
+  //       logger.error('[TOOLS] Error listing available colors:', error);
+  //       return {
+  //         content: [
+  //           {
+  //             type: 'text',
+  //             text: `Error listing available colors: ${error}`
+  //           }
+  //         ],
+  //         isError: true
+  //       };
+  //     }
+  //   }
+  // );
 }
