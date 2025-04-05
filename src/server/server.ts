@@ -27,23 +27,23 @@ export class Server {
     this.logger = logger;
     this.app = express();
 
-    this.logger.debug(`[INIT] Servidor ${serverName} v${serverVersion} | Configurações: PORT=${config.PORT}, HOST=${config.HOST}, URL=${config.PUBLIC_URL || 'não definida'}`);
+    this.logger.debug(`[INIT] Server ${serverName} v${serverVersion} | Configurations: PORT=${config.PORT}, HOST=${config.HOST}, URL=${config.PUBLIC_URL || 'not defined'}`);
 
-    // Configurar o gerenciador de tokens
+    // Configure the token manager
     const tokenManager = new TokenManager({
       tokenStoragePath: path.join(process.cwd(), 'data', 'tokens.json'),
-      tokenRefreshInterval: 30 * 60 * 1000, // 30 minutos
+      tokenRefreshInterval: 30 * 60 * 1000, // 30 minutes
     }, this.logger);
 
-    // Configurar o manipulador OAuth
+    // Configure the OAuth handler
     const baseUrl = buildBaseUrl(config);
-    const redirectPath = config.OAUTH_REDIRECT_PATH.startsWith('/') 
-      ? config.OAUTH_REDIRECT_PATH 
+    const redirectPath = config.OAUTH_REDIRECT_PATH.startsWith('/')
+      ? config.OAUTH_REDIRECT_PATH
       : `/${config.OAUTH_REDIRECT_PATH}`;
-    
+
     const redirectUri = `${baseUrl}${redirectPath}`;
-    
-    this.logger.debug(`[OAUTH] Configurando handler com URI=${redirectUri} e escopos=["calendar", "calendar.events"]`);
+
+    this.logger.debug(`[OAUTH] Configuring handler with URI=${redirectUri} and scopes=["calendar", "calendar.events"]`);
 
     const oauthHandler = new OAuthHandler({
       clientId: config.GOOGLE_CLIENT_ID,
@@ -55,10 +55,10 @@ export class Server {
       ],
     }, tokenManager, this.logger);
 
-    // Inicializar o serviço do Google Calendar
+    // Initialize the Google Calendar service
     this.calendarService = new GoogleCalendarService(oauthHandler, tokenManager, this.logger);
 
-    // Configurar middlewares e rotas
+    // Configure middlewares and routes
     this.app.use(express.json());
     this.app.use(corsMiddleware);
     this.app.use(requestLoggerMiddleware(this.logger));
@@ -71,33 +71,33 @@ export class Server {
       this.logger,
       this.heartbeatIntervals
     ));
-    
-    this.logger.debug('[INIT] Servidor configurado com sucesso');
+
+    this.logger.debug('[INIT] Server successfully configured');
   }
 
   public async start(port: string, host: string): Promise<void> {
-    this.logger.info(`[SERVER] Iniciando em ${host}:${port}`);
-    
-    // Tentar inicializar o servidor MCP se já estiver autenticado
+    this.logger.info(`[SERVER] Starting at ${host}:${port}`);
+
+    // Attempt to initialize the MCP server if already authenticated
     try {
       const isInitialized = await this.calendarService.initialize();
       if (isInitialized) {
-        this.logger.info('[GCAL] Serviço inicializado com sucesso');
+        this.logger.info('[GCAL] Service successfully initialized');
         await this.initializeMcpServer();
-        this.logger.info('[MCP] Servidor inicializado automaticamente');
+        this.logger.info('[MCP] Server automatically initialized');
       } else {
         const authUrl = this.calendarService.getAuthUrl();
-        this.logger.info('[GCAL] Autenticação necessária');
+        this.logger.info('[GCAL] Authentication required');
         this.logger.info(`[AUTH] URL: ${authUrl}`);
       }
     } catch (error) {
-      this.logger.error('[MCP] Falha na inicialização:', error);
-      this.logger.info('[SERVER] Iniciando sem integração MCP');
+      this.logger.error('[MCP] Initialization failed:', error);
+      this.logger.info('[SERVER] Starting without MCP integration');
     }
 
     return new Promise((resolve) => {
       this.app.listen(parseInt(port), host, () => {
-        this.logger.info(`[SERVER] ${this.serverName} v${this.serverVersion} em execução: http://${host}:${port}`);
+        this.logger.info(`[SERVER] ${this.serverName} v${this.serverVersion} running at: http://${host}:${port}`);
         resolve();
       });
     });
@@ -109,11 +109,11 @@ export class Server {
       version: this.serverVersion,
     });
 
-    this.logger.debug('[MCP] Registrando ferramentas de calendário');
+    this.logger.debug('[MCP] Registering calendar tools');
     registerCalendarTools(this.mcpServer, this.calendarService, this.logger);
   }
 
   public getMcpServer(): McpServer | undefined {
     return this.mcpServer;
   }
-} 
+}

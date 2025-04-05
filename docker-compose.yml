@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   g2n-mcp-gcal-ssee:
-    image: gabrielg2n/g2n-mcp-gcal-sse:latest
+    image: jebentier/g2n-mcp-gcal-sse:latest
     environment:
       PORT: 3001
       PUBLIC_URL: https://[seu-dominio.com]

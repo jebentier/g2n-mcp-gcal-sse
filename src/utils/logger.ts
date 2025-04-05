@@ -4,7 +4,7 @@ import { Config } from '../config/config.js';
 const { format, transports, createLogger } = winston;
 const { combine, timestamp, printf, colorize, errors, splat } = format;
 
-// Níveis de log padrão do npm (RFC5424)
+// Default npm log levels (RFC5424)
 const levels = {
   error: 0,
   warn: 1,
@@ -15,7 +15,7 @@ const levels = {
   silly: 6
 };
 
-// Cores para cada nível
+// Colors for each level
 const colors = {
   error: 'red',
   warn: 'yellow',
@@ -26,10 +26,10 @@ const colors = {
   silly: 'gray'
 };
 
-// Adiciona as cores ao winston
+// Adds colors to winston
 winston.addColors(colors);
 
-// Converte a configuração para um array de níveis ativos
+// Converts the configuration into an array of active levels
 const parseLogLevels = (logLevelStr: string): string[] => {
   return logLevelStr
     .split(',')
@@ -37,46 +37,46 @@ const parseLogLevels = (logLevelStr: string): string[] => {
     .filter(l => l in levels);
 };
 
-// Obtém o nível de log base da configuração
+// Gets the base log level from the configuration
 const getBaseLevel = (logLevelStr: string): string => {
   const configLevels = parseLogLevels(logLevelStr);
-  
-  // Se DEBUG está na lista, inclui todos os níveis abaixo dele
+
+  // If DEBUG is in the list, include all levels below it
   if (configLevels.includes('debug')) {
     return 'debug';
   }
-  
-  // Se verbose está na lista, inclui todos os níveis abaixo dele
+
+  // If VERBOSE is in the list, include all levels below it
   if (configLevels.includes('verbose')) {
     return 'verbose';
   }
-  
-  // Se http está na lista, inclui todos os níveis abaixo dele
+
+  // If HTTP is in the list, include all levels below it
   if (configLevels.includes('http')) {
     return 'http';
   }
-  
-  // Usa 'info' como base padrão
+
+  // Uses 'info' as the default base
   return 'info';
 };
 
-// Função para criar um logger com configuração específica
+// Function to create a logger with specific configuration
 export function createLoggerWithConfig(config: Config) {
-  // Verifica se um nível específico está ativo
+  // Checks if a specific level is active
   const isLevelEnabled = (level: string): boolean => {
     const configLevels = parseLogLevels(config.LOG_LEVEL || '');
 
     if (!configLevels?.length) {
-      // Se não há níveis definidos, usa os níveis padrão
+      // If no levels are defined, use the default levels
       return ['error', 'warn', 'info'].includes(level);
     }
-    
-    // Se DEBUG está ativado, habilita também debug, verbose, http, info, warn e error
+
+    // If DEBUG is enabled, also enable debug, verbose, http, info, warn, and error
     if (configLevels.includes('debug')) {
       return ['error', 'warn', 'info', 'http', 'verbose', 'debug'].includes(level);
     }
-    
-    // Se VERBOSE está ativado, habilita também verbose, http, info, warn e error
+
+    // If VERBOSE is enabled, also enable verbose, http, info, warn, and error
     if (configLevels.includes('verbose')) {
       return ['error', 'warn', 'info', 'http', 'verbose'].includes(level);
     }
@@ -84,44 +84,44 @@ export function createLoggerWithConfig(config: Config) {
     return configLevels.includes(level);
   };
 
-  // Formato personalizado para os logs
+  // Custom format for logs
   const customFormat = printf(info => {
-    // Extrai as informações básicas
+    // Extracts basic information
     const { level, message, timestamp, stack, ...rest } = info;
-    
-    // Constrói a mensagem base
+
+    // Builds the base message
     let output = `${timestamp} ${level}: ${message}`;
-    
-    // Adiciona o stack trace se existir
+
+    // Adds the stack trace if it exists
     if (stack) {
       output += `\n${stack}`;
     }
-    
-    // Adiciona metadados extras (se houver)
-    const metaKeys = Object.keys(rest).filter(key => 
+
+    // Adds extra metadata (if any)
+    const metaKeys = Object.keys(rest).filter(key =>
       ![LEVEL, MESSAGE, SPLAT].includes(key as any)
     );
-    
+
     if (metaKeys.length > 0) {
       const meta = metaKeys.reduce((obj, key) => {
         obj[key] = rest[key];
         return obj;
       }, {} as Record<string, any>);
-      
+
       output += `\n${JSON.stringify(meta, null, 2)}`;
     }
-    
+
     return output;
   });
 
-  // Cria o logger
+  // Creates the logger
   const logger = createLogger({
-    level: getBaseLevel(config.LOG_LEVEL || ''), // Determina o nível base
+    level: getBaseLevel(config.LOG_LEVEL || ''), // Determines the base level
     levels,
     format: combine(
-      errors({ stack: true }), // Captura stack traces
+      errors({ stack: true }), // Captures stack traces
       timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-      splat(), // Habilita interpolação de strings com %s, %d, etc
+      splat(), // Enables string interpolation with %s, %d, etc.
       colorize({ all: true }),
       customFormat
     ),
@@ -131,31 +131,31 @@ export function createLoggerWithConfig(config: Config) {
         handleRejections: true
       })
     ],
-    exitOnError: false // Não finaliza o processo em caso de erro
+    exitOnError: false // Does not terminate the process in case of error
   });
 
-  // Função auxiliar para formatar objetos não-string em string
+  // Helper function to format non-string objects into strings
   const formatIfNeeded = (message: any): string => {
     if (message === null || message === undefined) {
       return String(message);
     }
-    
+
     if (typeof message === 'string') {
       return message;
     }
-    
+
     if (message instanceof Error) {
-      return message.message; // O stack trace será adicionado pelo formato errors()
+      return message.message; // The stack trace will be added by the errors() format
     }
-    
+
     if (typeof message === 'object') {
       return JSON.stringify(message);
     }
-    
+
     return String(message);
   };
 
-  // Interface do logger
+  // Logger interface
   interface ILogger {
     error(message: string, ...meta: any[]): void;
     error(message: any): void;
@@ -176,7 +176,7 @@ export function createLoggerWithConfig(config: Config) {
     isLevelEnabled(level: string): boolean;
   }
 
-  // Wrapper do logger com tratamento de argumentos
+  // Logger wrapper with argument handling
   const winstonLogger: ILogger = {
     error: (message: any, ...meta: any[]): void => {
       if (!isLevelEnabled('error')) return;
@@ -246,7 +246,7 @@ export function createLoggerWithConfig(config: Config) {
   return winstonLogger;
 }
 
-// Re-exporta a interface ILogger
+// Re-exports the ILogger interface
 export interface ILogger {
   error(message: string, ...meta: any[]): void;
   error(message: any): void;
@@ -267,7 +267,7 @@ export interface ILogger {
   isLevelEnabled(level: string): boolean;
 }
 
-// Cria uma versão básica do logger para cenários em que a config não está disponível
+// Creates a basic logger for scenarios where config is unavailable
 const defaultLogger = createLoggerWithConfig({
   PORT: '3001',
   HOST: '0.0.0.0',
@@ -277,4 +277,4 @@ const defaultLogger = createLoggerWithConfig({
   LOG_LEVEL: 'error,warn,info,debug'
 });
 
-export default defaultLogger; 
+export default defaultLogger;

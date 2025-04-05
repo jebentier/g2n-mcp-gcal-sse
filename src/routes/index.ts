@@ -18,145 +18,145 @@ export const createRouter = (
 ) => {
   const router = Router();
 
-  // Endpoint de saúde
+  // Health endpoint
   router.get('/health', async (req: Request, res: Response) => {
     const isAuthenticated = await calendarService.isAuthenticated();
-    const responseData = { 
-      status: 'ok', 
-      server: serverName, 
+    const responseData = {
+      status: 'ok',
+      server: serverName,
       version: serverVersion,
-      authenticated: isAuthenticated 
+      authenticated: isAuthenticated
     };
-    
+
     res.status(200).json(responseData);
   });
 
-  // Endpoint para iniciar fluxo de autorização OAuth
+  // Endpoint to start OAuth authorization flow
   router.get('/auth', (req: Request, res: Response) => {
     const authUrl = calendarService.getAuthUrl();
     res.redirect(authUrl);
   });
 
-  // Endpoint de callback para receber o código de autorização OAuth
+  // Callback endpoint to receive the OAuth authorization code
   router.get('/oauth/callback', async (req: Request, res: Response) => {
     const { code } = req.query;
-    
+
     if (!code || typeof code !== 'string') {
-      res.status(400).send(errorTemplate('Código de autorização ausente ou inválido'));
+      res.status(400).send(errorTemplate('Missing or invalid authorization code'));
       return;
     }
 
     try {
-      // Processa o código de autorização
+      // Process the authorization code
       await calendarService.handleAuthCode(code);
-      
-      // Inicializa o serviço do Calendar
+
+      // Initialize the Calendar service
       const isInitialized = await calendarService.initialize();
       if (isInitialized) {
-        logger.info('[ROUTES] Google Calendar inicializado com sucesso');
-        
-        // Inicializa o servidor MCP
+        logger.info('[ROUTES] Google Calendar successfully initialized');
+
+        // Initialize the MCP server
         await server.initializeMcpServer();
-        logger.info('[ROUTES] Servidor MCP inicializado com sucesso');
-        
+        logger.info('[ROUTES] MCP server successfully initialized');
+
         res.send(successTemplate);
       } else {
-        res.status(500).send(errorTemplate('Falha ao inicializar o serviço do Google Calendar'));
+        res.status(500).send(errorTemplate('Failed to initialize Google Calendar service'));
       }
     } catch (error) {
-      logger.error('[ROUTES] Erro durante autorização OAuth:', error);
-      res.status(500).send(errorTemplate(`Erro durante autorização: ${error}`));
+      logger.error('[ROUTES] Error during OAuth authorization:', error);
+      res.status(500).send(errorTemplate(`Error during authorization: ${error}`));
     }
   });
 
-  // Endpoint para revogar o acesso
+  // Endpoint to revoke access
   router.post('/revoke', async (req: Request, res: Response) => {
     try {
       await calendarService.revokeAccess();
-      res.status(200).json({ success: true, message: 'Acesso revogado com sucesso' });
+      res.status(200).json({ success: true, message: 'Access successfully revoked' });
     } catch (error) {
-      logger.error('[ROUTES] Erro ao revogar acesso:', error);
-      res.status(500).json({ success: false, message: `Erro ao revogar acesso: ${error}` });
+      logger.error('[ROUTES] Error revoking access:', error);
+      res.status(500).json({ success: false, message: `Error revoking access: ${error}` });
     }
   });
 
-  // Endpoint SSE para eventos
+  // SSE endpoint for events
   router.get('/sse', checkMcpServerInitialized(() => server.getMcpServer()), async (req: Request, res: Response) => {
-    try {      
+    try {
       const transport = new SSEServerTransport('/messages', res);
       const transportId = transport.sessionId;
       transports[transportId] = transport;
-      
-      logger.debug(`[ROUTES] SSE conexão estabelecida | SessionID: ${transportId}`);
-      
-      res.on('close', () => {
-        logger.debug(`[ROUTES] SSE conexão fechada | SessionID: ${transportId}`);
 
-        // Limpar o heartbeat
+      logger.debug(`[ROUTES] SSE connection established | SessionID: ${transportId}`);
+
+      res.on('close', () => {
+        logger.debug(`[ROUTES] SSE connection closed | SessionID: ${transportId}`);
+
+        // Clear the heartbeat
         if (heartbeatIntervals[transportId]) {
           clearInterval(heartbeatIntervals[transportId]);
           delete heartbeatIntervals[transportId];
-          logger.debug(`[ROUTES] SSE heartbeat interrompido | SessionID: ${transportId}`);
+          logger.debug(`[ROUTES] SSE heartbeat stopped | SessionID: ${transportId}`);
         }
 
         delete transports[transportId];
       });
 
       res.on('error', (err) => {
-        logger.error(`[ROUTES] SSE erro na conexão | SessionID: ${transportId}:`, err);
+        logger.error(`[ROUTES] SSE connection error | SessionID: ${transportId}:`, err);
         if (heartbeatIntervals[transportId]) {
           clearInterval(heartbeatIntervals[transportId]);
           delete heartbeatIntervals[transportId];
         }
         delete transports[transportId];
       });
-      
+
       const mcpServer: McpServer | undefined = server.getMcpServer();
       if (mcpServer) {
         await mcpServer.connect(transport);
-        logger.debug(`[ROUTES] MCP conectado ao transporte | SessionID: ${transportId}`);
+        logger.debug(`[ROUTES] MCP connected to transport | SessionID: ${transportId}`);
       }
 
-      // Configurar heartbeat a cada 10 segundos para manter a conexão viva
+      // Set up a heartbeat every 10 seconds to keep the connection alive
       heartbeatIntervals[transportId] = setInterval(() => {
         try {
           if (res.writable) {
             res.write(`: heartbeat ${Date.now()}\n\n`);
-            logger.debug(`[ROUTES] SSE heartbeat enviado | SessionID: ${transportId}`);
+            logger.debug(`[ROUTES] SSE heartbeat sent | SessionID: ${transportId}`);
           } else {
             clearInterval(heartbeatIntervals[transportId]);
             delete heartbeatIntervals[transportId];
-            logger.debug(`[ROUTES] SSE conexão não está mais gravável, heartbeat interrompido | SessionID: ${transportId}`);
+            logger.debug(`[ROUTES] SSE connection is no longer writable, heartbeat stopped | SessionID: ${transportId}`);
           }
         } catch (err) {
-          logger.error(`[ROUTES] Erro ao enviar SSE heartbeat | SessionID: ${transportId}:`, err);
+          logger.error(`[ROUTES] Error sending SSE heartbeat | SessionID: ${transportId}:`, err);
           clearInterval(heartbeatIntervals[transportId]);
           delete heartbeatIntervals[transportId];
         }
-      }, 10000); // 10 segundos
+      }, 10000); // 10 seconds
     } catch (error) {
-      logger.error('[ROUTES] Erro na conexão SSE:', error);
+      logger.error('[ROUTES] Error in SSE connection:', error);
       res.status(500).end();
     }
   });
 
-  // Endpoint para mensagens
+  // Endpoint for messages
   router.post('/messages', async (req: Request, res: Response) => {
     const sessionId = req.query.sessionId as string;
     const transport = transports[sessionId];
-    
+
     if (transport) {
       try {
         await transport.handlePostMessage(req, res, req.body);
-        logger.debug(`[ROUTES] Mensagem processada | SessionID: ${sessionId}`);
+        logger.debug(`[ROUTES] Message processed | SessionID: ${sessionId}`);
       } catch (error) {
-        logger.error(`[ROUTES] Erro ao processar mensagem | SessionID: ${sessionId}:`, error);
+        logger.error(`[ROUTES] Error processing message | SessionID: ${sessionId}:`, error);
       }
     } else {
-      logger.debug(`[ROUTES] Erro: SessionID inválido: ${sessionId}`);
-      res.status(400).send('Nenhum transporte encontrado para o sessionId');
+      logger.debug(`[ROUTES] Error: Invalid SessionID: ${sessionId}`);
+      res.status(400).send('No transport found for the sessionId');
     }
   });
 
   return router;
-}; 
+};

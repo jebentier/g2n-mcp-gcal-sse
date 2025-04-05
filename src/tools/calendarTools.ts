@@ -1,5 +1,5 @@
 import { GoogleCalendarService } from '../services/googleCalendar.js';
-import { 
+import {
   ListCalendarsSchema,
   GetCalendarSchema,
   ListEventsSchema,
@@ -21,14 +21,14 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { ILogger } from '../utils/logger.js';
 
 export function registerCalendarTools(
-  server: McpServer, 
+  server: McpServer,
   calendarService: GoogleCalendarService,
   logger: ILogger
 ): void {
-  // Lista de calendários
+  // List calendars
   server.tool(
     'list-calendars',
-    'Lista todos os calendários disponíveis',
+    'List all available calendars',
     async () => {
       try {
         const calendars = await calendarService.listCalendars();
@@ -41,12 +41,12 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error('[TOOLS] Erro ao listar calendários:', error);
+        logger.error('[TOOLS] Error listing calendars:', error);
         return {
           content: [
             {
               type: 'text',
-              text: `Erro ao listar calendários: ${error}`
+              text: `Error listing calendars: ${error}`
             }
           ],
           isError: true
@@ -55,10 +55,10 @@ export function registerCalendarTools(
     }
   );
 
-  // Obter calendário específico
+  // Get specific calendar
   server.tool(
     'get-calendar',
-    'Obtenha detalhes de um calendário específico',
+    'Get details of a specific calendar',
     GetCalendarSchema.shape,
     async (params: GetCalendarParams) => {
       try {
@@ -72,12 +72,12 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error(`[TOOLS] Erro ao obter calendário ${params.calendarId}:`, error);
+        logger.error(`[TOOLS] Error getting calendar ${params.calendarId}:`, error);
         return {
           content: [
             {
               type: 'text',
-              text: `Erro ao obter calendário ${params.calendarId}: ${error}`
+              text: `Error getting calendar ${params.calendarId}: ${error}`
             }
           ],
           isError: true
@@ -86,10 +86,10 @@ export function registerCalendarTools(
     }
   );
 
-  // Listar eventos
+  // List events
   server.tool(
     'list-events',
-    'Listar eventos de um calendário com opções de filtragem',
+    'List events of a calendar with filtering options',
     ListEventsSchema.shape,
     async (params: ListEventsParams) => {
       try {
@@ -103,12 +103,12 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error(`[TOOLS] Erro ao listar eventos do calendário ${params.calendarId}:`, error);
+        logger.error(`[TOOLS] Error listing events of calendar ${params.calendarId}:`, error);
         return {
           content: [
             {
               type: 'text',
-              text: `Erro ao listar eventos do calendário ${params.calendarId}: ${error}`
+              text: `Error listing events of calendar ${params.calendarId}: ${error}`
             }
           ],
           isError: true
@@ -117,10 +117,10 @@ export function registerCalendarTools(
     }
   );
 
-  // Obter evento específico
+  // Get specific event
   server.tool(
     'get-event',
-    'Obtenha informações detalhadas sobre um evento específico',
+    'Get detailed information about a specific event',
     GetEventSchema.shape,
     async (params: GetEventParams) => {
       try {
@@ -134,12 +134,12 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error(`[TOOLS] Erro ao obter evento ${params.eventId}:`, error);
+        logger.error(`[TOOLS] Error getting event ${params.eventId}:`, error);
         return {
           content: [
             {
               type: 'text',
-              text: `Erro ao obter evento ${params.eventId}: ${error}`
+              text: `Error getting event ${params.eventId}: ${error}`
             }
           ],
           isError: true
@@ -148,16 +148,16 @@ export function registerCalendarTools(
     }
   );
 
-  // Criar evento
+  // Create event
   server.tool(
     'create-event',
-    'Criar um novo evento de calendário',
+    'Create a new calendar event',
     CreateEventSchema.shape,
     async (params: CreateEventParams) => {
       try {
-        // Extrai os dados relevantes do evento do parâmetro
+        // Extract relevant event data from the parameter
         const { calendarId, ...eventData } = params;
-        
+
         const createdEvent = await calendarService.createEvent(calendarId, eventData);
         return {
           content: [
@@ -168,12 +168,12 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error('[TOOLS] Erro ao criar evento:', error);
+        logger.error('[TOOLS] Error creating event:', error);
         return {
           content: [
             {
               type: 'text',
-              text: `Erro ao criar evento: ${error}`
+              text: `Error creating event: ${error}`
             }
           ],
           isError: true
@@ -182,15 +182,15 @@ export function registerCalendarTools(
     }
   );
 
-  // Atualizar evento
+  // Update event
   server.tool(
     'update-event',
-    'Atualizar um evento de calendário existente',
+    'Update an existing calendar event',
     UpdateEventSchema.shape,
     async (params: UpdateEventParams) => {
       try {
         const { calendarId, eventId, ...eventData } = params;
-        
+
         const updatedEvent = await calendarService.updateEvent(calendarId, eventId, eventData);
         return {
           content: [
@@ -201,12 +201,12 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error(`[TOOLS] Erro ao atualizar evento ${params.eventId}:`, error);
+        logger.error(`[TOOLS] Error updating event ${params.eventId}:`, error);
         return {
           content: [
             {
               type: 'text',
-              text: `Erro ao atualizar evento ${params.eventId}: ${error}`
+              text: `Error updating event ${params.eventId}: ${error}`
             }
           ],
           isError: true
@@ -215,31 +215,31 @@ export function registerCalendarTools(
     }
   );
 
-  // Excluir evento
+  // Delete event
   server.tool(
     'delete-event',
-    'Excluir um evento do calendário',
+    'Delete a calendar event',
     DeleteEventSchema.shape,
     async (params: DeleteEventParams) => {
       try {
         const { calendarId, eventId, sendUpdates } = params;
-        
+
         await calendarService.deleteEvent(calendarId, eventId, sendUpdates);
         return {
           content: [
             {
               type: 'text',
-              text: `Evento ${eventId} excluído com sucesso`
+              text: `Event ${eventId} successfully deleted`
             }
           ]
         };
       } catch (error) {
-        logger.error(`[TOOLS] Erro ao excluir evento ${params.eventId}:`, error);
+        logger.error(`[TOOLS] Error deleting event ${params.eventId}:`, error);
         return {
           content: [
             {
               type: 'text',
-              text: `Erro ao excluir evento ${params.eventId}: ${error}`
+              text: `Error deleting event ${params.eventId}: ${error}`
             }
           ],
           isError: true
@@ -248,10 +248,10 @@ export function registerCalendarTools(
     }
   );
 
-  // Listar cores disponíveis
+  // List available colors
   server.tool(
     'list-colors',
-    'Listar cores disponíveis para eventos e calendários',
+    'List available colors for events and calendars',
     async () => {
       try {
         const colors = await calendarService.listColors();
@@ -264,12 +264,12 @@ export function registerCalendarTools(
           ]
         };
       } catch (error) {
-        logger.error('[TOOLS] Erro ao listar cores disponíveis:', error);
+        logger.error('[TOOLS] Error listing available colors:', error);
         return {
           content: [
             {
               type: 'text',
-              text: `Erro ao listar cores disponíveis: ${error}`
+              text: `Error listing available colors: ${error}`
             }
           ],
           isError: true

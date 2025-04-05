@@ -1,5 +1,9 @@
 # G2N MCP Google Calendar SSE Server
 
+> [!NOTE]
+> All credit to this project goes to the original author, Gabriel Augusto.
+> This is just translating the interface to English so that it can be used with english prompts.
+
 🌎 This README is available in multiple languages:
 - 🇺🇸 [English](README.md)
 - 🇧🇷 [Portuguese](README.pt-br.md)
@@ -134,7 +138,7 @@ For Claude Desktop:
    ```
    http://[stack-service-name]:3001/sse
    ```
-3. Use the exposed calendar tools in your workflows 
+3. Use the exposed calendar tools in your workflows
 
 ## License
 
@@ -147,4 +151,4 @@ This project is developed and maintained by [Gabriel Augusto](https://github.com
 ## Support the Project 💜
 
 If you find this project useful, consider supporting it via PIX:
-- **PIX Key:** `gabriel@g2ngroup.com` 
+- **PIX Key:** `gabriel@g2ngroup.com`

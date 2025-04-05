@@ -1,7 +1,7 @@
 export const successTemplate = `
   <html>
     <head>
-      <title>Autorização concluída</title>
+      <title>Authorization Completed</title>
       <style>
         body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
         .success { color: green; }
@@ -10,9 +10,9 @@ export const successTemplate = `
     </head>
     <body>
       <div class="container">
-        <h1 class="success">Autorização concluída com sucesso!</h1>
-        <p>O servidor MCP do Google Calendar foi autorizado com sucesso.</p>
-        <p>Você pode fechar esta janela agora e voltar para a aplicação.</p>
+        <h1 class="success">Authorization Successfully Completed!</h1>
+        <p>The Google Calendar MCP server has been successfully authorized.</p>
+        <p>You can now close this window and return to the application.</p>
       </div>
     </body>
   </html>
@@ -21,7 +21,7 @@ export const successTemplate = `
 export const errorTemplate = (error: string) => `
   <html>
     <head>
-      <title>Erro na Autorização</title>
+      <title>Authorization Error</title>
       <style>
         body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
         .error { color: red; }
@@ -30,11 +30,11 @@ export const errorTemplate = (error: string) => `
     </head>
     <body>
       <div class="container">
-        <h1 class="error">Erro na Autorização</h1>
-        <p>Ocorreu um erro durante o processo de autorização:</p>
+        <h1 class="error">Authorization Error</h1>
+        <p>An error occurred during the authorization process:</p>
         <p class="error">${error}</p>
-        <p>Por favor, tente novamente ou contate o suporte.</p>
+        <p>Please try again or contact support.</p>
       </div>
     </body>
   </html>
-`; 
+`;
